@@ -1,0 +1,43 @@
+# 환경변수 (절대 커밋 금지!)
+.env
+
+# 세션 파일 (절대 커밋 금지!)
+.session.json
+
+# 파이썬 가상환경
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 일회성 스크립트 (배포 불필요)
+add_columns.py
+add_updated_by.sql
+analyze_excel.py
+append_schema.py
+extract_all_invests.py
+extract_invest.py
+extract_jiyun.py
+find_owners.py
+fix_db.sql
+fix_may.py
+grant_permissions.sql
+import_excel_data.py
+insert_full_invests.py
+insert_investments.py
+insert_investments_nh.py
+patch2_page5.py
+patch_page5.py
+supabase_schema.sql
+test_connection.py
