@@ -67,7 +67,7 @@ def _uid():
 def get_transactions(year: int, month: int) -> list:
     client = get_supabase_client()
     res = (client.table("transactions").select("*")
-           .eq("user_id", _uid()).eq("year", year).eq("month", month)
+           .eq("year", year).eq("month", month)
            .neq("category", "기타 수입")
            .order("day").execute())
     return res.data or []
@@ -75,7 +75,7 @@ def get_transactions(year: int, month: int) -> list:
 def get_other_incomes(year: int, month: int) -> list:
     client = get_supabase_client()
     res = (client.table("transactions").select("*")
-           .eq("user_id", _uid()).eq("year", year).eq("month", month)
+           .eq("year", year).eq("month", month)
            .eq("category", "기타 수입")
            .order("created_at").execute())
     return res.data or []
@@ -117,14 +117,16 @@ def delete_transaction(tx_id: str) -> bool:
 def get_monthly_income(year: int, month: int) -> dict:
     client = get_supabase_client()
     res = (client.table("monthly_income").select("*")
-           .eq("user_id", _uid()).eq("year", year).eq("month", month).execute())
+           .eq("year", year).eq("month", month).execute())
     return res.data[0] if res.data else {}
 
 
 def upsert_monthly_income(year: int, month: int, data: dict, confirmed_fields: list = None) -> bool:
     try:
+        existing = get_monthly_income(year, month)
+        owner_id = existing.get("user_id", _uid()) if existing else _uid()
         data.update({
-            "user_id":    _uid(),
+            "user_id":    owner_id,
             "year":       year,
             "month":      month,
             "updated_by": get_current_user_email(),
@@ -145,14 +147,16 @@ def upsert_monthly_income(year: int, month: int, data: dict, confirmed_fields: l
 def get_fixed_costs(year: int, month: int) -> dict:
     client = get_supabase_client()
     res = (client.table("fixed_costs").select("*")
-           .eq("user_id", _uid()).eq("year", year).eq("month", month).execute())
+           .eq("year", year).eq("month", month).execute())
     return res.data[0] if res.data else {}
 
 
 def upsert_fixed_costs(year: int, month: int, data: dict, confirmed_fields: list = None) -> bool:
     try:
+        existing = get_monthly_income(year, month)
+        owner_id = existing.get("user_id", _uid()) if existing else _uid()
         data.update({
-            "user_id":    _uid(),
+            "user_id":    owner_id,
             "year":       year,
             "month":      month,
             "updated_by": get_current_user_email(),
@@ -173,14 +177,16 @@ def upsert_fixed_costs(year: int, month: int, data: dict, confirmed_fields: list
 def get_utility_costs(year: int, month: int) -> dict:
     client = get_supabase_client()
     res = (client.table("utility_costs").select("*")
-           .eq("user_id", _uid()).eq("year", year).eq("month", month).execute())
+           .eq("year", year).eq("month", month).execute())
     return res.data[0] if res.data else {}
 
 
 def upsert_utility_costs(year: int, month: int, data: dict, confirmed_fields: list = None) -> bool:
     try:
+        existing = get_utility_costs(year, month)
+        owner_id = existing.get("user_id", _uid()) if existing else _uid()
         data.update({
-            "user_id":    _uid(),
+            "user_id":    owner_id,
             "year":       year,
             "month":      month,
             "updated_by": get_current_user_email(),
@@ -201,7 +207,7 @@ def upsert_utility_costs(year: int, month: int, data: dict, confirmed_fields: li
 def get_investments(year: int, month: int) -> list:
     client = get_supabase_client()
     res = (client.table("investments").select("*")
-           .eq("user_id", _uid()).eq("year", year).eq("month", month)
+           .eq("year", year).eq("month", month)
            .order("owner").execute())
     return res.data or []
 
@@ -344,7 +350,7 @@ def copy_previous_month_investments(year: int, month: int) -> bool:
 # ─── Monthly Goals (월별 자산 목표) ──────────────────────
 def get_monthly_goals(year: int) -> list:
     try:
-        res = get_supabase_client().table("monthly_goals").select("*").eq("user_id", _uid()).eq("year", year).order("month").execute()
+        res = get_supabase_client().table("monthly_goals").select("*").eq("year", year).order("month").execute()
         return res.data or []
     except Exception as e:
         print(f"Error fetching monthly goals: {e}")
@@ -352,7 +358,7 @@ def get_monthly_goals(year: int) -> list:
 
 def get_monthly_goal(year: int, month: int) -> dict:
     try:
-        res = get_supabase_client().table("monthly_goals").select("*").eq("user_id", _uid()).eq("year", year).eq("month", month).execute()
+        res = get_supabase_client().table("monthly_goals").select("*").eq("year", year).eq("month", month).execute()
         return res.data[0] if res.data else {}
     except Exception as e:
         print(f"Error fetching monthly goal: {e}")
