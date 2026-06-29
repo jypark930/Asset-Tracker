@@ -1,88 +1,134 @@
 import os
 import json
+import io
+import time
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 from dotenv import load_dotenv
 
-def analyze_kakao_assets(image_paths):
-    """
-    여러 장의 이미지를 한 번에 받아 AI가 자체적으로 '평가금액 화면'과 '현재가 화면'을 짝지어 분석하고,
-    계좌별로 분류된 종목 데이터를 JSON 형태로 추출합니다.
-    """
+MAX_SIZE = 800
+JPEG_QUALITY = 60
+
+_PROMPT = (
+    "이 금융앱 캡처 화면에서 계좌명과 보유 종목 데이터를 추출하세요.\n"
+    "반드시 아래 JSON 형식만 출력하고 설명이나 마크다운은 절대 쓰지 마세요:\n\n"
+    "{\"account_name\": \"계좌명\", \"stocks\": [{\"stock_name\": \"종목명\", "
+    "\"quantity\": 수량, \"average_price\": 평단가, \"current_price\": 현재가, "
+    "\"principal\": 원금, \"valuation\": 평가액}]}\n\n"
+    "account_name은 다음 중 하나: 주택청약/IRP/중개형ISA/청년도약/CMA/KB/TOSS/업비트/총 예수금\n"
+    "총 예수금이면 예수금(원화)(qty=1,원금=평가액=원화금액)과 예수금(달러)(qty=달러수량) 포함.\n"
+    "모든 숫자는 정수(쉼표 없음), 모르면 0."
+)
+
+def _compress(path: str) -> Image.Image | None:
+    try:
+        img = Image.open(path).convert("RGB")
+        w, h = img.size
+        if max(w, h) > MAX_SIZE:
+            scale = MAX_SIZE / max(w, h)
+            img = img.resize((int(w * scale), int(h * scale)), Image.BILINEAR)
+        return img
+    except Exception as e:
+        print(f"[vision] compress error: {e}")
+        return None
+
+def analyze_kakao_assets(image_paths: list) -> list | None:
     load_dotenv(override=True)
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        st.error("GEMINI_API_KEY가 .env 파일에 설정되지 않았습니다.")
+        st.error("GEMINI_API_KEY가 설정되지 않았습니다.")
         return None
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # gemini-1.5-flash-8b: 무료 티어 1500RPD / 분당 15회 - 가장 안정적
+    model = genai.GenerativeModel("gemini-1.5-flash-8b")
 
-    images = [Image.open(p) for p in image_paths]
+    total = len(image_paths)
+    status_box = st.empty()
+    progress_bar = st.progress(0)
+    errors = []   # 스레드 안에서 st 호출 금지 → 에러를 리스트로 모음
+    results = []
 
-    prompt = """
-당신은 금융 데이터 추출 전문가입니다. 사용자가 올린 여러 장의 카카오톡 자산 모아보기 캡처 화면들을 분석해야 합니다.
-이미지들 속에는 여러 계좌(예: KB, 업비트, TOSS, 중개형ISA, 청년도약 등)의 화면들이 섞여 있습니다.
+    for idx, path in enumerate(image_paths):
+        # 두 번째 이미지부터 4초 딜레이 (RPM 한도 초과 방지)
+        if idx > 0:
+            time.sleep(4)
 
-[작업 지시사항]
-1. 이미지 내의 글자를 읽고, 어떤 증권사/은행/계좌명인지 파악하여 아래 '지원하는 계좌명' 중 하나로 매핑하세요.
-   - 지원하는 계좌명: 주택청약, IRP, 중개형ISA, 청년도약, CMA, KB, TOSS, 업비트, 총 예수금
-   - **중요**: 계좌명이 "총 예수금"으로 인식된 경우, 종목명을 반드시 `"예수금(현금)"`과 `"예수금(달러)"`로 구분하세요.
-     * 달러 자산: 종목명을 `"예수금(달러)"`로 설정하고, `quantity`에 **보유한 달러($) 금액 전체**를 입력하세요. (평가금액/원금도 달러 수량과 동일하게 입력).
-     * 현금(원화) 자산: 종목명을 `"예수금(현금)"`으로 설정하고 `quantity`는 1로, 원금과 평가액은 해당 원화 금액으로 설정하세요.
-2. 동일한 계좌의 '평가금액 조회 화면'과 '현재가 조회 화면' 이미지를 스스로 짝지어 종목별 데이터를 계산하세요.
-   - 보유수량 = 평가금액 / 현재가 (소수점 첫째 자리까지 유지, 예: 3.1)
-   - 원금 = 평가금액 - 손익금액
-   (단, 예적금이나 특정 화면에서는 현재가/수량이 없을 수 있습니다. 이 경우 원금과 평가금액만 추출하세요.)
-3. 결과를 다음과 같은 계좌 단위로 그룹화된 순수 JSON 배열(Array)로만 출력하세요. 마크다운(```json)이나 텍스트는 절대 포함하지 마세요.
+        # ── 압축 ──
+        status_box.info(f"📦 이미지 압축 중... ({idx+1}/{total})")
+        progress_bar.progress((idx * 2) / (total * 2 + 1), text=f"📦 압축 {idx+1}/{total}")
+        img = _compress(path)
+        if img is None:
+            errors.append(f"❌ 이미지 {idx+1}: 로드/압축 실패")
+            continue
 
-[
-  {
-    "account_name": "KB",
-    "stocks": [
-      {
-        "stock_name": "삼성전자",
-        "quantity": 10.0,
-        "average_price": 75000,
-        "current_price": 80000,
-        "principal": 750000,
-        "valuation": 800000
-      }
-    ]
-  },
-  {
-    "account_name": "업비트",
-    "stocks": [
-      {
-        "stock_name": "비트코인",
-        "quantity": 0.5,
-        "average_price": 80000000,
-        "current_price": 90000000,
-        "principal": 40000000,
-        "valuation": 45000000
-      }
-    ]
-  }
-]
-"""
-    try:
-        contents = [prompt] + images
-        response = model.generate_content(contents)
-        text = response.text.strip()
-        # Remove markdown code blocks if the model still adds them
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-            
-        try:
-            return json.loads(text.strip())
-        except json.JSONDecodeError as je:
-            st.error(f"JSON 파싱 실패! AI 응답 원본:\n\n{text}")
-            return None
-    except Exception as e:
-        st.error(f"AI 통신 에러 발생: {e}")
+        # ── AI 분석 ──
+        status_box.info(f"🤖 AI 분석 중... ({idx+1}/{total}장)")
+        progress_bar.progress((idx * 2 + 1) / (total * 2 + 1), text=f"🤖 분석 {idx+1}/{total}")
+
+        raw_text = ""
+        success = False
+        for attempt in range(3):
+            try:
+                resp = model.generate_content([_PROMPT, img])
+                raw_text = resp.text.strip()
+                print(f"[vision] img {idx+1} raw response: {raw_text[:300]}")
+
+                # 마크다운 코드블록 제거
+                text = raw_text
+                if "```" in text:
+                    parts = text.split("```")
+                    text = parts[1] if len(parts) > 1 else parts[0]
+                    if text.startswith("json"):
+                        text = text[4:]
+                text = text.strip()
+
+                parsed = json.loads(text)
+                results.append(parsed)
+                success = True
+                break
+            except json.JSONDecodeError:
+                errors.append(f"⚠️ 이미지 {idx+1} JSON 파싱 실패 (시도 {attempt+1})\nAI 응답: `{raw_text[:300]}`")
+                print(f"[vision] JSON parse error, raw: {raw_text[:300]}")
+                break   # JSON 오류는 재시도해도 같으므로 바로 포기
+            except Exception as e:
+                err = str(e)
+                print(f"[vision] API error (attempt {attempt+1}): {err[:300]}")
+                if "429" in err or "quota" in err.lower() or "rate" in err.lower():
+                    wait = 10 * (attempt + 1)
+                    status_box.warning(f"⏳ API 한도 초과, {wait}초 대기 후 재시도 ({attempt+1}/3)...")
+                    time.sleep(wait)
+                else:
+                    errors.append(f"❌ 이미지 {idx+1} API 에러: {err[:200]}")
+                    break
+
+        if not success and not any(f"이미지 {idx+1}" in e for e in errors):
+            errors.append(f"❌ 이미지 {idx+1}: 분석 실패 (3회 시도 모두 실패)")
+
+    # ── 에러 표시 ──
+    for err_msg in errors:
+        st.warning(err_msg)
+
+    progress_bar.progress(1.0, text="✅ 완료!")
+    time.sleep(0.3)
+    status_box.empty()
+    progress_bar.empty()
+
+    if not results:
         return None
+
+    # 동일 계좌 합산
+    merged: dict[str, dict] = {}
+    for r in results:
+        acc = r.get("account_name", "")
+        if not acc:
+            continue
+        if acc not in merged:
+            merged[acc] = {"account_name": acc, "stocks": []}
+        existing = {s["stock_name"] for s in merged[acc]["stocks"]}
+        for s in r.get("stocks", []):
+            if s.get("stock_name") not in existing:
+                merged[acc]["stocks"].append(s)
+
+    return list(merged.values()) if merged else None

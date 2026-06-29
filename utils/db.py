@@ -51,7 +51,7 @@ FIXED_COST_GROUPS = {
 }
 INVESTMENT_ACCOUNTS = {
     "비현금성 자산": ["주택청약", "IRP", "중개형ISA"],
-    "현금성 자산": ["청년도약", "CMA", "KB", "TOSS", "업비트", "총 예수금"]
+    "현금성 자산": ["TOSS", "KB", "총 예수금", "CMA", "업비트", "청년도약"]
 }
 
 def _uid():
@@ -68,7 +68,16 @@ def get_transactions(year: int, month: int) -> list:
     client = get_supabase_client()
     res = (client.table("transactions").select("*")
            .eq("user_id", _uid()).eq("year", year).eq("month", month)
+           .neq("category", "기타 수입")
            .order("day").execute())
+    return res.data or []
+
+def get_other_incomes(year: int, month: int) -> list:
+    client = get_supabase_client()
+    res = (client.table("transactions").select("*")
+           .eq("user_id", _uid()).eq("year", year).eq("month", month)
+           .eq("category", "기타 수입")
+           .order("created_at").execute())
     return res.data or []
 
 
@@ -219,9 +228,11 @@ def get_monthly_summary(year: int, month: int) -> dict:
     fixed    = get_fixed_costs(year, month)
     utility  = get_utility_costs(year, month)
     invests  = get_investments(year, month)
+    other_incomes = get_other_incomes(year, month)
 
     total_income = (income.get("junyoung_salary", 0) + income.get("junyoung_bonus", 0) +
-                    income.get("jiyun_salary", 0)    + income.get("jiyun_incentive", 0))
+                    income.get("jiyun_salary", 0)    + income.get("jiyun_incentive", 0) +
+                    sum(item.get("amount", 0) for item in other_incomes))
 
     total_variable = sum(t.get("amount", 0) for t in txns)
 
@@ -284,4 +295,75 @@ def replace_investment_stocks(investment_id: str, stocks: list) -> bool:
         return True
     except Exception as e:
         st.error(f"종목 저장 실패: {e}")
+        return False
+
+def copy_previous_month_investments(year: int, month: int) -> bool:
+    client = get_supabase_client()
+    try:
+        curr_invs = get_investments(year, month)
+        curr_keys = set((i["owner"], i["account_type"]) for i in curr_invs)
+            
+        prev_month = month - 1 if month > 1 else 12
+        prev_year = year if month > 1 else year - 1
+        
+        prev_invs = get_investments(prev_year, prev_month)
+        if not prev_invs:
+            return False
+            
+        user_id = _uid()
+        copied_any = False
+        
+        for p_inv in prev_invs:
+            key = (p_inv["owner"], p_inv["account_type"])
+            if key not in curr_keys:
+                res = client.table("investments").insert({
+                    "user_id": user_id, "year": year, "month": month,
+                    "owner": p_inv["owner"], "account_type": p_inv["account_type"],
+                    "principal": p_inv.get("principal", 0), "amount": p_inv.get("amount", 0)
+                }).execute()
+                
+                if res.data:
+                    copied_any = True
+                    new_inv_id = res.data[0]["id"]
+                    p_inv_id = p_inv["id"]
+                    p_stocks = get_investment_stocks(p_inv_id)
+                    
+                    if p_stocks:
+                        new_stocks = []
+                        for s in p_stocks:
+                            new_s = {k: v for k, v in s.items() if k not in ("id", "investment_id", "created_at")}
+                            new_s["investment_id"] = new_inv_id
+                            new_stocks.append(new_s)
+                        client.table("investment_stocks").insert(new_stocks).execute()
+                        
+        return copied_any
+    except Exception as e:
+        print(f"Error copying previous month investments: {e}")
+        return False
+
+# ─── Monthly Goals (월별 자산 목표) ──────────────────────
+def get_monthly_goals(year: int) -> list:
+    try:
+        res = get_supabase_client().table("monthly_goals").select("*").eq("user_id", _uid()).eq("year", year).order("month").execute()
+        return res.data or []
+    except Exception as e:
+        print(f"Error fetching monthly goals: {e}")
+        return []
+
+def get_monthly_goal(year: int, month: int) -> dict:
+    try:
+        res = get_supabase_client().table("monthly_goals").select("*").eq("user_id", _uid()).eq("year", year).eq("month", month).execute()
+        return res.data[0] if res.data else {}
+    except Exception as e:
+        print(f"Error fetching monthly goal: {e}")
+        return {}
+
+def upsert_monthly_goal(year: int, month: int, target_amount: int) -> bool:
+    try:
+        get_supabase_client().table("monthly_goals").upsert({
+            "user_id": _uid(), "year": year, "month": month, "target_amount": target_amount
+        }, on_conflict="user_id,year,month").execute()
+        return True
+    except Exception as e:
+        st.error(f"목표 저장 실패: {e}")
         return False

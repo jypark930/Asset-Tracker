@@ -41,3 +41,17 @@ patch2_page5.py
 patch_page5.py
 supabase_schema.sql
 test_connection.py
+
+# 불필요한 파일 및 데이터베이스 스크립트 추가
+.agents/
+cloudflared.exe
+cloudflared.log
+debug_event.txt
+*.csv
+check_cma.py
+force_copy.py
+insert_may_data.py
+insert_may_data_jiyun.py
+test_copy.py
+update_cma.py
+update_jiyun_cash.py

@@ -142,8 +142,169 @@ def logout():
 
 
 def is_authenticated() -> bool:
-    """현재 세션에서 로그인 여부 확인 및 사이드바 app 숨김 처리"""
-    st.markdown('<style>[data-testid="stSidebarNavItems"] li:first-child { display: none !important; }</style>', unsafe_allow_html=True)
+    """현재 세션에서 로그인 여부 확인 및 글로벌 스타일링 주입"""
+    st.markdown("""
+    <style>
+    /* ── 웹 폰트 (KoPubWorld) ── */
+    @font-face {
+        font-family: 'KoPubWorldBold';
+        src: url('/app/static/fonts/kopub_dotum_bold.ttf') format('truetype');
+        font-weight: bold;
+        font-style: normal;
+    }
+
+    * { font-family: 'KoPubWorldBold', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .font-orbitron { font-family: 'KoPubWorldBold', monospace !important; }
+
+    .stApp {
+        background-color: #f4f5f7 !important;
+        color: #1e293b !important;
+    }
+
+    /* ── 여백 조율 ── */
+    .block-container { padding-top: 4rem !important; }
+    h1 {
+        transform: translate(18px, -20px) !important;
+        color: #0f172a !important;
+    }
+
+    /* ── 사이드바 ── */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        border-right: 1px solid #e2e8f0 !important;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.03);
+    }
+    [data-testid="stSidebarNavItems"] li > div[data-testid="stSidebarNavLinkActive"] {
+        background: rgba(255, 107, 0, 0.08) !important;
+        border-left: 4px solid #ff6b00;
+        border-radius: 0 8px 8px 0;
+    }
+    [data-testid="stSidebarNavItems"] li > div:hover {
+        background-color: rgba(255, 107, 0, 0.04) !important;
+    }
+    [data-testid="stSidebarNav"] ul li a {
+        padding: 12px 16px !important;
+        border-radius: 8px !important;
+        margin-bottom: 4px !important;
+        transition: all 0.3s ease !important;
+    }
+    [data-testid="stSidebarNav"] ul li a span {
+        font-size: 1.25rem !important;
+        font-weight: 700 !important;
+        color: #475569 !important;
+    }
+    [data-testid="stSidebarNavItems"] li > div[data-testid="stSidebarNavLinkActive"] a span {
+        color: #ff6b00 !important;
+    }
+    [data-testid="stSidebarNav"] ul li a:hover span {
+        color: #ff6b00 !important;
+    }
+
+    /* ── Streamlit 탭 ── */
+    button[data-baseweb="tab"] {
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        color: #64748b !important;
+        background-color: transparent !important;
+        border-bottom: 2px solid transparent !important;
+        transition: all 0.3s ease;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #ff6b00 !important;
+        border-bottom: 2px solid #ff6b00 !important;
+    }
+    button[data-baseweb="tab"]:hover { color: #f26a21 !important; }
+
+    /* ── 입력 필드 ── */
+    .stSelectbox > div[data-baseweb="select"] > div,
+    .stTextInput > div[data-baseweb="input"] > div,
+    .stNumberInput > div[data-baseweb="input"] > div {
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        color: #1e293b !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .stSelectbox > div[data-baseweb="select"] > div:focus-within,
+    .stTextInput > div[data-baseweb="input"] > div:focus-within,
+    .stNumberInput > div[data-baseweb="input"] > div:focus-within {
+        border-color: #ff6b00 !important;
+        box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.2) !important;
+    }
+
+    /* ── 메뉴 제거 ── */
+    #MainMenu, .stAppDeployButton, button[title="View options"] { display: none !important; }
+
+    /* ── 사이드바 제어 버튼 ── */
+    [data-testid="collapsedControl"] svg,
+    header[data-testid="stHeader"] button svg { display: none !important; }
+    
+    [data-testid="collapsedControl"],
+    header[data-testid="stHeader"] button {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        width: auto !important; height: auto !important;
+        padding: 5px 15px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+    }
+    [data-testid="collapsedControl"]::after,
+    header[data-testid="stHeader"] button::after {
+        content: "Menu" !important;
+        font-family: 'KoPubWorldBold', sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        color: #1b263b !important;
+        line-height: 1.5 !important;
+    }
+
+    /* ── 월 네비게이터 강제 조율 ── */
+    div[data-testid="stHorizontalBlock"]:has(.date-col) {
+        flex-wrap: nowrap !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.date-col) > div[data-testid="column"] {
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        width: calc(50% - 5px) !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #month-nav-marker) {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 10px !important;
+        margin-bottom: 10px;
+    }
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #month-nav-marker) > div.element-container {
+        width: auto !important;
+        flex: 0 1 auto !important;
+        min-width: 0 !important;
+    }
+
+        transition: all 0.3s ease !important;
+    }
+    [data-testid="stSidebarNav"] ul li a span {
+        font-size: 1.25rem !important; /* 글자 크기 큼직하게 (약 20px) */
+        font-weight: 700 !important;
+        line-height: 1.5 !important;
+    }
+    [data-testid="stSidebarNav"] ul li a:hover {
+        background: rgba(0, 242, 254, 0.15) !important;
+    }
+
+    /* ── 커스텀 스크롤바 ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff6b00; }
+
+    /* ── 데이터프레임 ── */
+    [data-testid="stDataFrame"] iframe { border-radius: 8px; }
+    </style>
+    """, unsafe_allow_html=True)
     return "user" in st.session_state and st.session_state["user"] is not None
 
 
