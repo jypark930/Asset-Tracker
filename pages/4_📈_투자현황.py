@@ -152,24 +152,32 @@ with st.expander("🚀 [임시] 6월 데이터 일괄 업로드"):
                 })
 
         client = get_supabase_client()
-        user_id = get_current_user().id
+        user = st.session_state.get("user")
+        if not user:
+            st.error("❌ 로그인 정보를 찾을 수 없습니다. 다시 로그인해주세요.")
+            st.stop()
+        user_id = user.id
         year, month = 2026, 6
-        for (owner, acc_type), data in accounts.items():
-            client.table("investments").upsert({
-                "user_id": user_id, "year": year, "month": month,
-                "owner": owner, "account_type": acc_type,
-                "principal": int(data["total_p"]), "amount": int(data["total_a"]),
-            }, on_conflict="user_id,year,month,owner,account_type").execute()
-            
-            res2 = client.table("investments").select("id").eq("user_id", user_id).eq("year", year).eq("month", month).eq("owner", owner).eq("account_type", acc_type).execute()
-            if res2.data:
-                inv_id = res2.data[0]["id"]
-                client.table("investment_stocks").delete().eq("investment_id", inv_id).execute()
-                if data["stocks"]:
-                    for s in data["stocks"]: s["investment_id"] = inv_id
-                    client.table("investment_stocks").insert(data["stocks"]).execute()
-                    
-        st.success("✅ 6월 데이터 업로드 완료! 새로고침 해주세요.")
+        try:
+            for (owner, acc_type), data in accounts.items():
+                client.table("investments").upsert({
+                    "user_id": user_id, "year": year, "month": month,
+                    "owner": owner, "account_type": acc_type,
+                    "principal": int(data["total_p"]), "amount": int(data["total_a"]),
+                }, on_conflict="user_id,year,month,owner,account_type").execute()
+                
+                res2 = client.table("investments").select("id").eq("user_id", user_id).eq("year", year).eq("month", month).eq("owner", owner).eq("account_type", acc_type).execute()
+                if res2.data:
+                    inv_id = res2.data[0]["id"]
+                    client.table("investment_stocks").delete().eq("investment_id", inv_id).execute()
+                    if data["stocks"]:
+                        for s in data["stocks"]: s["investment_id"] = inv_id
+                        client.table("investment_stocks").insert(data["stocks"]).execute()
+                        
+            st.success("✅ 6월 데이터 업로드 완료! 새로고침 해주세요.")
+        except Exception as e:
+            st.error(f"❌ 업로드 중 오류 발생: {e}")
+
 
 # ── 커스텀 타이틀 ─────────────────────────
 st.markdown("""
