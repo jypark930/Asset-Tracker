@@ -147,7 +147,7 @@ with st.expander("🚀 [임시] 6월 데이터 일괄 업로드"):
             if name:
                 accounts[key]["stocks"].append({
                     "stock_name": name, "quantity": parse_val(row["수량"]),
-                    "average_price": parse_val(row["평단가"]), "current_price": parse_val(row["현재가"]),
+                    "average_price": int(parse_val(row["평단가"])), "current_price": int(parse_val(row["현재가"])),
                     "principal": int(p), "valuation": int(a)
                 })
 
