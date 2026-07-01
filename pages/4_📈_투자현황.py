@@ -151,30 +151,21 @@ with st.expander("🚀 [임시] 6월 데이터 일괄 업로드"):
                     "principal": int(p), "valuation": int(a)
                 })
 
-        client = get_supabase_client()
-        user = st.session_state.get("user")
-        if not user:
-            st.error("❌ 로그인 정보를 찾을 수 없습니다. 다시 로그인해주세요.")
-            st.stop()
-        user_id = user.id
-        year, month = 2026, 6
         try:
+            from utils.db import upsert_investment, replace_investment_stocks, get_investments
+            year, month = 2026, 6
             for (owner, acc_type), data in accounts.items():
-                client.table("investments").upsert({
-                    "user_id": user_id, "year": year, "month": month,
-                    "owner": owner, "account_type": acc_type,
-                    "principal": int(data["total_p"]), "amount": int(data["total_a"]),
-                }, on_conflict="user_id,year,month,owner,account_type").execute()
-                
-                res2 = client.table("investments").select("id").eq("user_id", user_id).eq("year", year).eq("month", month).eq("owner", owner).eq("account_type", acc_type).execute()
-                if res2.data:
-                    inv_id = res2.data[0]["id"]
-                    client.table("investment_stocks").delete().eq("investment_id", inv_id).execute()
-                    if data["stocks"]:
-                        for s in data["stocks"]: s["investment_id"] = inv_id
-                        client.table("investment_stocks").insert(data["stocks"]).execute()
-                        
-            st.success("✅ 6월 데이터 업로드 완료! 6월로 이동합니다...")
+                # 기존 앱에서 쓰는 함수 그대로 사용 (auth 처리 포함)
+                upsert_investment(year, month, owner, acc_type, int(data["total_p"]), int(data["total_a"]))
+
+            # upsert 후 저장된 ID 가져와서 종목 업데이트
+            saved_invs = get_investments(year, month)
+            for inv in saved_invs:
+                key = (inv["owner"], inv["account_type"])
+                if key in accounts and accounts[key]["stocks"]:
+                    replace_investment_stocks(inv["id"], accounts[key]["stocks"])
+
+            st.success(f"✅ 6월 데이터 업로드 완료! ({len(accounts)}개 계좌, 6월로 이동합니다...)")
             st.session_state.inv_year = 2026
             st.session_state.inv_month = 6
             st.rerun()
