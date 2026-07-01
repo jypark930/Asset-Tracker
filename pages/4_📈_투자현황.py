@@ -174,7 +174,10 @@ with st.expander("🚀 [임시] 6월 데이터 일괄 업로드"):
                         for s in data["stocks"]: s["investment_id"] = inv_id
                         client.table("investment_stocks").insert(data["stocks"]).execute()
                         
-            st.success("✅ 6월 데이터 업로드 완료! 새로고침 해주세요.")
+            st.success("✅ 6월 데이터 업로드 완료! 6월로 이동합니다...")
+            st.session_state.inv_year = 2026
+            st.session_state.inv_month = 6
+            st.rerun()
         except Exception as e:
             st.error(f"❌ 업로드 중 오류 발생: {e}")
 
