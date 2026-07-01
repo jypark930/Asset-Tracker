@@ -385,7 +385,15 @@ with st.expander("➕ 새 지출 추가", expanded=False):
     with st.form("add_tx_form", clear_on_submit=True):
         fc1, fc2 = st.columns([1, 6])  # 일 컬럼을 좁게 설정
         with fc1:
-            f_day = st.number_input("일", 1, 31, today.day)
+            # 해당 월의 마지막으로 입력한 '일'을 기억 (없으면 이번 달인 경우 오늘, 아니면 1일)
+            default_day = st.session_state.get(f"last_day_{year}_{month}", today.day if (year == today.year and month == today.month) else 1)
+            # 해당 월의 최대 일수를 계산 (윤년 포함)
+            import calendar
+            max_day = calendar.monthrange(year, month)[1]
+            if default_day > max_day:
+                default_day = max_day
+                
+            f_day = st.number_input("일", 1, max_day, default_day)
         with fc2:
             f_cat = st.selectbox("구분", CATEGORIES)
 
@@ -404,6 +412,9 @@ with st.expander("➕ 새 지출 추가", expanded=False):
             if f_amt <= 0:
                 st.error("올바른 금액을 입력하세요.")
             elif insert_transaction(year, month, f_day, f_amt, f_desc, f_cat):
+                # 방금 입력한 '일'을 세션 상태에 저장하여 다음 입력 시 기본값으로 사용
+                st.session_state[f"last_day_{year}_{month}"] = f_day
+                
                 from utils.audio import play_notice_sound
                 play_notice_sound()
                 st.success("✅ 저장되었습니다.")

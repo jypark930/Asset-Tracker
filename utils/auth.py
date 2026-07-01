@@ -9,6 +9,7 @@ import os
 import json
 import pathlib
 from datetime import datetime, timezone
+from streamlit_cookies_controller import CookieController
 
 load_dotenv()
 
@@ -26,8 +27,14 @@ EMAIL_TO_NAME = {
     "lovejidbs@naver.com":  "지윤",
 }
 
-# 세션 파일 경로 (앱 디렉토리 내 .session.json)
-_SESSION_FILE = pathlib.Path(__file__).parent.parent / ".session.json"
+# 브라우저 쿠키 컨트롤러
+_COOKIE_KEY_REFRESH = "sb_refresh_token"
+_COOKIE_KEY_EMAIL = "sb_user_email"
+
+def _get_cookie_controller():
+    if "cookie_controller" not in st.session_state:
+        st.session_state["cookie_controller"] = CookieController()
+    return st.session_state["cookie_controller"]
 
 
 @st.cache_resource
@@ -41,50 +48,55 @@ def get_supabase_client() -> Client:
     return create_client(url, key, options=None)
 
 
-# ─── 세션 파일 저장/로드 ────────────────────────────────────
+# ─── 세션 쿠키 저장/로드 ────────────────────────────────────
 
 def _save_session(email: str, access_token: str, refresh_token: str):
-    """로그인 정보를 로컬 파일에 저장"""
+    """로그인 정보를 브라우저 쿠키에 저장"""
     try:
-        data = {
-            "email": email,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "saved_at": datetime.now(timezone.utc).isoformat(),
-        }
-        _SESSION_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    except Exception:
-        pass  # 세션 저장 실패는 무시
+        controller = _get_cookie_controller()
+        # 토큰을 30일 동안 유지
+        controller.set(_COOKIE_KEY_REFRESH, refresh_token, max_age=30*24*60*60)
+        controller.set(_COOKIE_KEY_EMAIL, email, max_age=30*24*60*60)
+    except Exception as e:
+        print(f"Cookie save error: {e}")
 
 
 def _load_session() -> dict | None:
-    """저장된 세션 파일 로드"""
+    """저장된 브라우저 쿠키 로드"""
     try:
-        if _SESSION_FILE.exists():
-            return json.loads(_SESSION_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        pass
+        controller = _get_cookie_controller()
+        refresh_token = controller.get(_COOKIE_KEY_REFRESH)
+        email = controller.get(_COOKIE_KEY_EMAIL)
+        
+        if refresh_token:
+            return {
+                "email": email,
+                "refresh_token": refresh_token
+            }
+    except Exception as e:
+        print(f"Cookie load error: {e}")
     return None
 
 
 def _clear_session_file():
-    """세션 파일 삭제"""
+    """세션 쿠키 삭제"""
     try:
-        if _SESSION_FILE.exists():
-            _SESSION_FILE.unlink()
-    except Exception:
-        pass
+        controller = _get_cookie_controller()
+        controller.remove(_COOKIE_KEY_REFRESH)
+        controller.remove(_COOKIE_KEY_EMAIL)
+    except Exception as e:
+        print(f"Cookie clear error: {e}")
 
 
 # ─── 자동 로그인 복원 ────────────────────────────────────────
 
 def try_restore_session() -> bool:
-    """저장된 세션으로 자동 로그인 시도. 성공 시 True."""
+    """저장된 쿠키로 자동 로그인 시도. 성공 시 True."""
     if is_authenticated():
         return True
 
     saved = _load_session()
-    if not saved:
+    if not saved or not saved.get("refresh_token"):
         return False
 
     try:
@@ -94,7 +106,7 @@ def try_restore_session() -> bool:
         if res.session and res.user:
             st.session_state["user"] = res.user
             st.session_state["access_token"] = res.session.access_token
-            # 갱신된 토큰으로 파일 업데이트
+            # 갱신된 토큰으로 쿠키 업데이트
             _save_session(
                 res.user.email,
                 res.session.access_token,
@@ -102,7 +114,7 @@ def try_restore_session() -> bool:
             )
             return True
     except Exception:
-        # 토큰 만료 또는 오류 → 세션 파일 삭제
+        # 토큰 만료 또는 오류 → 쿠키 삭제
         _clear_session_file()
     return False
 

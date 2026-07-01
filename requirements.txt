@@ -1,8 +1,9 @@
-streamlit
-supabase
-pandas
-plotly
-python-dotenv
+streamlit==1.36.0
+supabase==2.5.1
+pandas==2.2.2
+python-dotenv==1.0.1
+streamlit-cookies-controller==0.0.3
 httpx
+plotly
 google-generativeai
 Pillow
