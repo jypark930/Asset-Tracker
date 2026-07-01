@@ -50,6 +50,27 @@ now = datetime.now()
 
 # ── 임시 6월 데이터 업로드 ──────────────────────────────
 with st.expander("🚀 [임시] 6월 데이터 일괄 업로드"):
+    # 잘못된 계좌 삭제 버튼
+    valid_acc_types = {"TOSS", "KB", "총 예수금", "CMA", "업비트", "청년도약", "주택청약", "IRP", "중개형ISA"}
+    if st.button("🗑️ 잘못된 계좌 정리 (NH투자 등 삭제)", type="secondary"):
+        from utils.auth import get_supabase_client
+        from utils.db import get_investments
+        client = get_supabase_client()
+        invs = get_investments(2026, 6)
+        deleted = []
+        for inv in invs:
+            if inv["account_type"] not in valid_acc_types:
+                # 종목 먼저 삭제 후 계좌 삭제
+                client.table("investment_stocks").delete().eq("investment_id", inv["id"]).execute()
+                client.table("investments").delete().eq("id", inv["id"]).execute()
+                deleted.append(f"{inv['owner']} / {inv['account_type']}")
+        if deleted:
+            st.success(f"✅ 삭제 완료: {', '.join(deleted)}")
+            st.rerun()
+        else:
+            st.info("정리할 잘못된 계좌가 없습니다.")
+
+    st.divider()
     st.warning("이 버튼을 누르면 6월 데이터를 덮어씁니다.")
     if st.button("업로드 실행"):
         import csv
@@ -126,6 +147,8 @@ with st.expander("🚀 [임시] 6월 데이터 일괄 업로드"):
             except: return 0
 
         def get_owner_and_type(raw_acc):
+            if raw_acc == "업비트":
+                return "지윤", "업비트"
             owner = "지윤" if raw_acc.startswith("지윤") else "준영"
             raw_acc = raw_acc.replace("지윤", "").replace("준영", "").strip()
             acc_map = {"ISA": "중개형ISA", "TOSS": "TOSS", "CMA": "CMA", "청년도약계좌": "청년도약", "청년주택드림": "주택청약", "주택청약": "주택청약", "IRP": "IRP", "연금저축": "IRP", "업비트": "업비트", "KB": "KB"}
