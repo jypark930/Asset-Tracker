@@ -94,7 +94,7 @@ st.markdown("""
 
 # ── 이미 로그인된 경우 또는 자동 로그인 복원 ──────────────
 if is_authenticated() or try_restore_session():
-    st.switch_page("pages/1_📊_대시보드.py")
+    st.switch_page("pages/2_💳_가계부.py")
 
 
 # ── 로그인 화면 렌더링 ──────────────────────────────────────
@@ -122,7 +122,7 @@ with st.container():
             with st.spinner("로그인 중..."):
                 if login(email, password):
                     st.success("✅ 로그인 성공!")
-                    st.switch_page("pages/1_📊_대시보드.py")
+                    st.switch_page("pages/2_💳_가계부.py")
 
     st.markdown("""
     <div class="login-footer">
