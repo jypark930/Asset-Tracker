@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>body { margin: 0; padding: 0; display: none; }</style>
+    <script>
+      function sendMessageToStreamlit(data) {
+        window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: "streamlit:setComponentValue",
+          value: data,
+        }, "*");
+      }
+
+      function onMessageFromStreamlit(event) {
+        if (event.data.type !== "streamlit:render") return;
+
+        const args = event.data.args;
+        if (!args) return;
+
+        const action = args.action;
+        const storage_key = args.storage_key;
+        const value = args.value;
+
+        try {
+          if (action === "get") {
+            const val = window.localStorage.getItem(storage_key);
+            sendMessageToStreamlit(val);
+          } else if (action === "set") {
+            window.localStorage.setItem(storage_key, value);
+            sendMessageToStreamlit("set_done");
+          } else if (action === "remove") {
+            window.localStorage.removeItem(storage_key);
+            sendMessageToStreamlit("remove_done");
+          } else if (action === "get_all") {
+            const token = window.localStorage.getItem("sb_refresh_token");
+            const email = window.localStorage.getItem("sb_user_email");
+            sendMessageToStreamlit({
+              refresh_token: token,
+              email: email
+            });
+          }
+        } catch (e) {
+          sendMessageToStreamlit({ error: e.toString() });
+        }
+        
+        // Auto-resize
+        window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: "streamlit:setFrameHeight",
+          height: 0,
+        }, "*");
+      }
+
+      window.addEventListener("message", onMessageFromStreamlit);
+      
+      // Let Streamlit know we're ready
+      window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:componentReady",
+        apiVersion: 1,
+      }, "*");
+    </script>
+  </head>
+  <body></body>
+</html>
