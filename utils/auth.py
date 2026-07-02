@@ -31,9 +31,10 @@ EMAIL_TO_NAME = {
 _COOKIE_KEY_REFRESH = "sb_refresh_token"
 _COOKIE_KEY_EMAIL = "sb_user_email"
 
-@st.cache_resource(experimental_allow_widgets=True)
 def get_cookie_manager():
-    return stx.CookieManager()
+    if "cookie_manager" not in st.session_state:
+        st.session_state["cookie_manager"] = stx.CookieManager(key="sb_cookie_manager")
+    return st.session_state["cookie_manager"]
 
 
 @st.cache_resource
