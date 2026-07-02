@@ -9,7 +9,7 @@ import os
 import json
 import pathlib
 from datetime import datetime, timezone
-from streamlit_cookies_controller import CookieController
+import extra_streamlit_components as stx
 
 load_dotenv()
 
@@ -31,10 +31,9 @@ EMAIL_TO_NAME = {
 _COOKIE_KEY_REFRESH = "sb_refresh_token"
 _COOKIE_KEY_EMAIL = "sb_user_email"
 
-def _get_cookie_controller():
-    if "cookie_controller" not in st.session_state:
-        st.session_state["cookie_controller"] = CookieController()
-    return st.session_state["cookie_controller"]
+@st.cache_resource(experimental_allow_widgets=True)
+def get_cookie_manager():
+    return stx.CookieManager()
 
 
 @st.cache_resource
@@ -53,10 +52,9 @@ def get_supabase_client() -> Client:
 def _save_session(email: str, access_token: str, refresh_token: str):
     """로그인 정보를 브라우저 쿠키에 저장"""
     try:
-        controller = _get_cookie_controller()
-        # 토큰을 30일 동안 유지
-        controller.set(_COOKIE_KEY_REFRESH, refresh_token, max_age=30*24*60*60)
-        controller.set(_COOKIE_KEY_EMAIL, email, max_age=30*24*60*60)
+        cookie_manager = get_cookie_manager()
+        cookie_manager.set(_COOKIE_KEY_REFRESH, refresh_token, max_age=30*24*60*60)
+        cookie_manager.set(_COOKIE_KEY_EMAIL, email, max_age=30*24*60*60)
     except Exception as e:
         print(f"Cookie save error: {e}")
 
@@ -64,9 +62,9 @@ def _save_session(email: str, access_token: str, refresh_token: str):
 def _load_session() -> dict | None:
     """저장된 브라우저 쿠키 로드"""
     try:
-        controller = _get_cookie_controller()
-        refresh_token = controller.get(_COOKIE_KEY_REFRESH)
-        email = controller.get(_COOKIE_KEY_EMAIL)
+        cookie_manager = get_cookie_manager()
+        refresh_token = cookie_manager.get(_COOKIE_KEY_REFRESH)
+        email = cookie_manager.get(_COOKIE_KEY_EMAIL)
         
         if refresh_token:
             return {
@@ -81,9 +79,9 @@ def _load_session() -> dict | None:
 def _clear_session_file():
     """세션 쿠키 삭제"""
     try:
-        controller = _get_cookie_controller()
-        controller.remove(_COOKIE_KEY_REFRESH)
-        controller.remove(_COOKIE_KEY_EMAIL)
+        cookie_manager = get_cookie_manager()
+        cookie_manager.delete(_COOKIE_KEY_REFRESH)
+        cookie_manager.delete(_COOKIE_KEY_EMAIL)
     except Exception as e:
         print(f"Cookie clear error: {e}")
 
