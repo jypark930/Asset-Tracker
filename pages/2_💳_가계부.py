@@ -233,7 +233,10 @@ if txns:
         c = t.get("category","기타")
         cat_sum_3[c] = cat_sum_3.get(c,0) + t.get("amount",0)
         
-    daily_total = int(cat_sum_3.get("생활비",0)) + int(cat_sum_3.get("간식비",0)) + int(cat_sum_3.get("외식비",0)) + int(cat_sum_3.get("문화비",0)) + int(cat_sum_3.get("준영점심",0))
+    daily_total = (int(cat_sum_3.get("생활비",0)) + int(cat_sum_3.get("기타생활비",0)) + 
+                   int(cat_sum_3.get("식비",0)) + int(cat_sum_3.get("생필품비",0)) + 
+                   int(cat_sum_3.get("간식비",0)) + int(cat_sum_3.get("외식비",0)) + 
+                   int(cat_sum_3.get("문화비",0)) + int(cat_sum_3.get("준영점심",0)))
     medical = int(cat_sum_3.get("의료비", 0))
     gift = int(cat_sum_3.get("경조비",0))
     total_variable = total_utility + daily_total + medical + gift
