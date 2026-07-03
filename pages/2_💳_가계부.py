@@ -486,3 +486,89 @@ else:
 
 
 # ═══════════════════════════════════════════════════════════
+
+# ── 변동지출 구성 파이 차트 (막대 차트 제거, 간격 띄움) ─────
+draw_neon_divider()
+st.markdown("<p style='font-size:1.1rem;font-weight:600;color:#94a3b8;margin-bottom:8px;'>🍰 변동지출 구성</p>", unsafe_allow_html=True)
+cat_for_pie = {k: v for k, v in cat_sum.items() if v > 0} if txns else {}
+
+if cat_for_pie:
+    import plotly.express as px
+    fig2 = px.pie(
+        values=list(cat_for_pie.values()),
+        names=list(cat_for_pie.keys()),
+        color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
+        color_discrete_map={"준영점심": "#10b981"},
+        hole=0.5,
+    )
+    # pull을 제거하고, 대신 배경색과 동일한 아주 두꺼운 테두리를 넣어 간격이 100% 일정하게 보이도록 수정
+    fig2.update_traces(
+        textposition="inside", 
+        textinfo="percent+label",
+        marker=dict(line=dict(color='#ffffff', width=4))
+    )
+    fig2.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
+        height=320, margin=dict(l=0, r=0, t=10, b=0),
+        legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+    
+    # Plotly 파이 차트의 클릭 이벤트 미지원 한계로 인해, pills(알약 모양 버튼)를 사용한 필터링 제공
+    categories_list = list(cat_for_pie.keys())
+    selected_pill = st.pills("🔍 카테고리를 선택하여 내역을 필터링하세요:", options=["🌟 전체보기"] + categories_list, default="🌟 전체보기")
+    
+    selected_category = None
+    if selected_pill and selected_pill != "🌟 전체보기":
+        selected_category = selected_pill
+
+else:
+    st.info("📌 변동지출 데이터가 없습니다.")
+    selected_category = None
+
+draw_neon_divider()
+
+# ── 변동지출 내역 ──────────────────────
+if selected_category:
+    st.markdown(f"<p style='font-size:1.1rem;font-weight:700;color:#1e293b;margin-bottom:8px;'>🧾 {year}년 {month}월 <span style='color:#ff6b00;'>[{selected_category}]</span> 지출 내역</p>", unsafe_allow_html=True)
+else:
+    st.markdown(f"<p style='font-size:1.1rem;font-weight:700;color:#1e293b;margin-bottom:8px;'>🧾 {year}년 {month}월 전체 변동지출 내역</p>", unsafe_allow_html=True)
+
+if txns:
+    df_list = pd.DataFrame(txns)[["day", "category", "description", "amount"]]
+    df_list.columns = ["일", "구분", "이용처", "금액(원)"]
+    
+    # 선택된 카테고리가 있으면 필터링
+    if selected_category:
+        df_list = df_list[df_list["구분"] == selected_category]
+        
+    if len(df_list) > 0:
+        sum_amt = df_list["금액(원)"].sum()
+        df_list["금액(원)"] = df_list["금액(원)"].apply(lambda x: f"₩{x:,}")
+        
+        # 커스텀 HTML 테이블 (중앙 정렬 및 완벽한 너비 조절)
+        html = "<div style='overflow-x: auto;'>"
+        html += "<table style='width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem; text-align: center; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03); font-family: \"KoPubWorldDotum\", sans-serif;'>"
+        html += "<tr style='background-color: #f8f9fa; border-bottom: 2px solid #e2e8f0; color: #64748b; font-weight: 700;'>"
+        html += "<th style='padding: 12px 8px; width: 16%; text-align: center;'>일</th>"
+        html += "<th style='padding: 12px 8px; width: 22%; text-align: center;'>구분</th>"
+        html += "<th style='padding: 12px 8px; text-align: center;'>이용처</th>"
+        html += "<th style='padding: 12px 12px; width: 1%; white-space: nowrap; text-align: center;'>금액(원)</th>"
+        html += "</tr>"
+        
+        for idx, row in df_list.iterrows():
+            html += "<tr style='border-bottom: 1px solid #f1f5f9; background-color: #ffffff;'>"
+            html += f"<td style='padding: 12px 8px; width: 16%; color: #1e293b; font-weight: 700;'>{row['일']}</td>"
+            html += f"<td style='padding: 12px 8px; width: 22%; color: #475569;'>{row['구분']}</td>"
+            html += f"<td style='padding: 12px 8px; color: #1e293b;'>{row['이용처']}</td>"
+            html += f"<td style='padding: 12px 12px; width: 1%; white-space: nowrap; color: #1e293b; text-align: right; font-weight: 600;'>{row['금액(원)']}</td>"
+            html += "</tr>"
+            
+        html += "</table></div>"
+        st.markdown(html, unsafe_allow_html=True)
+        
+        st.caption(f"총 {len(df_list)}건 / 합계 ₩{sum_amt:,}")
+    else:
+        st.info(f"📌 '{selected_category}' 카테고리의 지출 내역이 없습니다.")
+else:
+    st.info("📌 변동지출 내역이 없습니다. 가계부 메뉴에서 입력하세요.")
