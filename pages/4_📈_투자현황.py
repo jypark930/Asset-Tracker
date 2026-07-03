@@ -452,26 +452,11 @@ st.markdown(grid_html, unsafe_allow_html=True)
 st.markdown("<p style='font-size:0.8rem;color:#94a3b8;margin-top:-8px;margin-bottom:4px;'>* 자산은 원금 기준임</p>", unsafe_allow_html=True)
 draw_light_divider()
 
-# ── 자산 구성 요약 (탭) ───────────────────────────────────
+# ── 자산 구성 요약 + 계좌별 상세 (탭 통합) ────────────────────
 st.markdown(f"<p style='font-size:1.3rem;font-weight:700;color:#1e293b;margin-bottom:8px;'>자산 구성 비중 <span style='font-size:1.1rem;color:#64748b;font-weight:600;'>(총 원금: ₩{int(round(total_data['tot_p'])):,})</span></p>", unsafe_allow_html=True)
-
-# 공유 탭 세션 초기화
-if "inv_owner_tab" not in st.session_state:
-    st.session_state.inv_owner_tab = "가족 전체"
-
-# 커스텀 탭 버튼 (자산 구성 비중용)
-_tab_options = ["🌟 가족 전체", "👨 준영", "👩 지윤"]
-_tab_keys    = ["가족 전체",    "준영",    "지윤"]
-_cols = st.columns(len(_tab_options))
-for _i, (_label, _key) in enumerate(zip(_tab_options, _tab_keys)):
-    _active = st.session_state.inv_owner_tab == _key
-    if _cols[_i].button(
-        _label, key=f"pie_tab_{_key}",
-        use_container_width=True,
-        type="primary" if _active else "secondary"
-    ):
-        st.session_state.inv_owner_tab = _key
-        st.rerun()
+if invests and total_data["tot_p"] > 0:
+    import plotly.graph_objects as go
+    tab_fam, tab_jy, tab_ji = st.tabs(["\U0001f31f 가족 전체", "\U0001f468 준영", "\U0001f469 지윤"])
 
     def _draw_pie_tab(owner_name, tot_amt, cash_amt, non_cash_amt, is_total=False):
         if tot_amt <= 0:
@@ -506,30 +491,36 @@ for _i, (_label, _key) in enumerate(zip(_tab_options, _tab_keys)):
             st.plotly_chart(fig, use_container_width=True)
             
         with c2:
-
             st.markdown(f"""
             <div style='background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0; margin-top:12px;'>
-                <div style='margin-bottom:8px; font-size:1.05rem;'><span style='color:#3b82f6;'>💰</span> <b>현금성 자산</b>: ₩{int(round(cash_amt)):,} <span style='color:#64748b;font-size:0.9rem;'>({cash_amt/tot_amt*100:.1f}%)</span></div>
-                <div style='font-size:1.05rem;'><span style='color:#ff6b00;'>🏠</span> <b>비현금성 자산</b>: ₩{int(round(non_cash_amt)):,} <span style='color:#64748b;font-size:0.9rem;'>({non_cash_amt/tot_amt*100:.1f}%)</span></div>
+                <div style='margin-bottom:8px; font-size:1.05rem;'><span style='color:#3b82f6;'>\U0001f4b0</span> <b>현금성 자산</b>: \u20a9{int(round(cash_amt)):,} <span style='color:#64748b;font-size:0.9rem;'>({cash_amt/tot_amt*100:.1f}%)</span></div>
+                <div style='font-size:1.05rem;'><span style='color:#ff6b00;'>\U0001f3e0</span> <b>비현금성 자산</b>: \u20a9{int(round(non_cash_amt)):,} <span style='color:#64748b;font-size:0.9rem;'>({non_cash_amt/tot_amt*100:.1f}%)</span></div>
                 <div style='font-size:0.78rem;color:#94a3b8;margin-top:10px;'>* 자산은 원금 기준임</div>
             </div>
             """, unsafe_allow_html=True)
 
-if invests and total_data["tot_p"] > 0:
-    import plotly.graph_objects as go
-    _cur = st.session_state.inv_owner_tab
-    if _cur == "가족 전체":
+    with tab_fam:
         _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
-    elif _cur == "준영":
+        draw_light_divider()
+        st.subheader("\U0001f4cb 계좌별 상세 현황 — 환 준영")
+        render_detail_table("준영")
+        draw_light_divider()
+        st.subheader("\U0001f4cb 계좌별 상세 현황 — \U0001f469 지윤")
+        render_detail_table("지윤")
+    with tab_jy:
         _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
-    else:
+        draw_light_divider()
+        st.subheader("\U0001f4cb 계좌별 상세 현황")
+        render_detail_table("준영")
+    with tab_ji:
         _draw_pie_tab("지윤", total_data["ji_p"], cash_data["ji_p"], non_cash_data["ji_p"], is_total=False)
+        draw_light_divider()
+        st.subheader("\U0001f4cb 계좌별 상세 현황")
+        render_detail_table("지윤")
 
 draw_light_divider()
 
 # ── 상세 투자 현황 ──────────────────────────────────────────────
-st.subheader("📋 계좌별 상세 현황")
-
 # investment_id → stocks 매핑
 inv_stocks_map = {}
 for s in all_stocks:
@@ -778,25 +769,7 @@ def render_detail_table(owner_key):
     _render_group("비현금성 자산 원금", "🏠", non_cash_invs)
 
 
-# 계좌별 상세 현황 탭 (자산 구성 비중과 연동)
-_tab_options2 = ["👨 준영 상세", "👩 지윤 상세"]
-_tab_keys2    = ["준영",          "지윤"]
-_cols2 = st.columns(len(_tab_options2))
-for _i2, (_label2, _key2) in enumerate(zip(_tab_options2, _tab_keys2)):
-    _active2 = st.session_state.inv_owner_tab == _key2
-    if _cols2[_i2].button(
-        _label2, key=f"detail_tab_{_key2}",
-        use_container_width=True,
-        type="primary" if _active2 else "secondary"
-    ):
-        st.session_state.inv_owner_tab = _key2
-        st.rerun()
 
-_cur_detail = st.session_state.inv_owner_tab
-if _cur_detail in ("가족 전체", "준영"):
-    render_detail_table("준영")
-else:
-    render_detail_table("지윤")
 
 draw_light_divider()
 
