@@ -79,6 +79,7 @@ draw_neon_divider()
 # ═══════════════════════════════════════════════════════════
 
 txns = get_transactions(year, month)
+selected_category = None
 
 cat_colors = ["#ff6b00", "#1b263b", "#3b82f6", "#94a3b8", "#f97316", "#475569"]
 
@@ -89,36 +90,34 @@ if txns:
     total_v = sum(t["amount"] for t in txns)
     cat_items = sorted(cat_sum.items(), key=lambda x: -x[1])
 
-    # ── 시각화 영역 (막대 차트 고정) ────────────────────────
-    import plotly.graph_objects as go
-
-    cats = [c for c, _ in cat_items]
-    amts = [a for _, a in cat_items]
-    bar_colors = [cat_colors[i % len(cat_colors)] for i in range(len(cats))]
-    fig = go.Figure(go.Bar(
-        x=cats, y=amts,
-        marker_color=bar_colors,
-        text=[f"₩{a:,}" for a in amts],
-        textposition="outside",
-        hoverinfo="none",
-    ))
-    fig.update_layout(
-        height=320, margin=dict(l=20, r=20, t=30, b=20),
-        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
-        xaxis=dict(showgrid=False, tickfont=dict(size=13, color="#1e293b"), fixedrange=True),
-        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", tickformat=",.0f",
-                   tickprefix="₩", tickfont=dict(size=11, color="#64748b"), fixedrange=True),
-        font=dict(family="sans-serif"),
-        dragmode=False,
-    )
-    st.plotly_chart(
-        fig,
-        use_container_width=True,
-        config={
-            "staticPlot": True,   # 모든 인터랙션 비활성화
-            "displayModeBar": False,
-        }
-    )
+    # ── 변동지출 구성 파이 차트 ────────────────────────
+    cat_for_pie = {k: v for k, v in cat_sum.items() if v > 0}
+    if cat_for_pie:
+        import plotly.express as px
+        fig2 = px.pie(
+            values=list(cat_for_pie.values()),
+            names=list(cat_for_pie.keys()),
+            color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
+            color_discrete_map={"준영점심": "#10b981"},
+            hole=0.5,
+        )
+        fig2.update_traces(
+            textposition="inside", 
+            textinfo="percent+label",
+            marker=dict(line=dict(color='#ffffff', width=4))
+        )
+        fig2.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
+            height=320, margin=dict(l=0, r=0, t=10, b=0),
+            legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+        
+        categories_list = list(cat_for_pie.keys())
+        selected_pill = st.pills("🔍 카테고리를 선택하여 내역을 필터링하세요:", options=["🌟 전체보기"] + categories_list, default="🌟 전체보기")
+        
+        if selected_pill and selected_pill != "🌟 전체보기":
+            selected_category = selected_pill
 
     draw_neon_divider()
 
@@ -486,45 +485,6 @@ else:
 
 
 # ═══════════════════════════════════════════════════════════
-
-# ── 변동지출 구성 파이 차트 (막대 차트 제거, 간격 띄움) ─────
-draw_neon_divider()
-st.markdown("<p style='font-size:1.1rem;font-weight:600;color:#94a3b8;margin-bottom:8px;'>🍰 변동지출 구성</p>", unsafe_allow_html=True)
-cat_for_pie = {k: v for k, v in cat_sum.items() if v > 0} if txns else {}
-
-if cat_for_pie:
-    import plotly.express as px
-    fig2 = px.pie(
-        values=list(cat_for_pie.values()),
-        names=list(cat_for_pie.keys()),
-        color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
-        color_discrete_map={"준영점심": "#10b981"},
-        hole=0.5,
-    )
-    # pull을 제거하고, 대신 배경색과 동일한 아주 두꺼운 테두리를 넣어 간격이 100% 일정하게 보이도록 수정
-    fig2.update_traces(
-        textposition="inside", 
-        textinfo="percent+label",
-        marker=dict(line=dict(color='#ffffff', width=4))
-    )
-    fig2.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
-        height=320, margin=dict(l=0, r=0, t=10, b=0),
-        legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
-    )
-    st.plotly_chart(fig2, use_container_width=True)
-    
-    # Plotly 파이 차트의 클릭 이벤트 미지원 한계로 인해, pills(알약 모양 버튼)를 사용한 필터링 제공
-    categories_list = list(cat_for_pie.keys())
-    selected_pill = st.pills("🔍 카테고리를 선택하여 내역을 필터링하세요:", options=["🌟 전체보기"] + categories_list, default="🌟 전체보기")
-    
-    selected_category = None
-    if selected_pill and selected_pill != "🌟 전체보기":
-        selected_category = selected_pill
-
-else:
-    st.info("📌 변동지출 데이터가 없습니다.")
-    selected_category = None
 
 draw_neon_divider()
 
