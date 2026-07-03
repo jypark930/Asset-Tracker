@@ -454,9 +454,24 @@ draw_light_divider()
 
 # ── 자산 구성 요약 (탭) ───────────────────────────────────
 st.markdown(f"<p style='font-size:1.3rem;font-weight:700;color:#1e293b;margin-bottom:8px;'>자산 구성 비중 <span style='font-size:1.1rem;color:#64748b;font-weight:600;'>(총 원금: ₩{int(round(total_data['tot_p'])):,})</span></p>", unsafe_allow_html=True)
-if invests and total_data["tot_p"] > 0:
-    import plotly.graph_objects as go
-    tab_fam, tab_jy, tab_ji = st.tabs(["🌟 가족 전체", "👨 준영", "👩 지윤"])
+
+# 공유 탭 세션 초기화
+if "inv_owner_tab" not in st.session_state:
+    st.session_state.inv_owner_tab = "가족 전체"
+
+# 커스텀 탭 버튼 (자산 구성 비중용)
+_tab_options = ["🌟 가족 전체", "👨 준영", "👩 지윤"]
+_tab_keys    = ["가족 전체",    "준영",    "지윤"]
+_cols = st.columns(len(_tab_options))
+for _i, (_label, _key) in enumerate(zip(_tab_options, _tab_keys)):
+    _active = st.session_state.inv_owner_tab == _key
+    if _cols[_i].button(
+        _label, key=f"pie_tab_{_key}",
+        use_container_width=True,
+        type="primary" if _active else "secondary"
+    ):
+        st.session_state.inv_owner_tab = _key
+        st.rerun()
 
     def _draw_pie_tab(owner_name, tot_amt, cash_amt, non_cash_amt, is_total=False):
         if tot_amt <= 0:
@@ -500,11 +515,14 @@ if invests and total_data["tot_p"] > 0:
             </div>
             """, unsafe_allow_html=True)
 
-    with tab_fam:
+if invests and total_data["tot_p"] > 0:
+    import plotly.graph_objects as go
+    _cur = st.session_state.inv_owner_tab
+    if _cur == "가족 전체":
         _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
-    with tab_jy:
+    elif _cur == "준영":
         _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
-    with tab_ji:
+    else:
         _draw_pie_tab("지윤", total_data["ji_p"], cash_data["ji_p"], non_cash_data["ji_p"], is_total=False)
 
 draw_light_divider()
@@ -760,10 +778,24 @@ def render_detail_table(owner_key):
     _render_group("비현금성 자산 원금", "🏠", non_cash_invs)
 
 
-dtab_jy, dtab_ji = st.tabs(["👨 준영 상세", "👩 지윤 상세"])
-with dtab_jy:
+# 계좌별 상세 현황 탭 (자산 구성 비중과 연동)
+_tab_options2 = ["👨 준영 상세", "👩 지윤 상세"]
+_tab_keys2    = ["준영",          "지윤"]
+_cols2 = st.columns(len(_tab_options2))
+for _i2, (_label2, _key2) in enumerate(zip(_tab_options2, _tab_keys2)):
+    _active2 = st.session_state.inv_owner_tab == _key2
+    if _cols2[_i2].button(
+        _label2, key=f"detail_tab_{_key2}",
+        use_container_width=True,
+        type="primary" if _active2 else "secondary"
+    ):
+        st.session_state.inv_owner_tab = _key2
+        st.rerun()
+
+_cur_detail = st.session_state.inv_owner_tab
+if _cur_detail in ("가족 전체", "준영"):
     render_detail_table("준영")
-with dtab_ji:
+else:
     render_detail_table("지윤")
 
 draw_light_divider()
