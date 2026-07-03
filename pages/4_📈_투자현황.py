@@ -747,27 +747,27 @@ def render_detail_table(owner_key):
     _render_group("현금성 자산 원금", "💰", cash_invs)
     _render_group("비현금성 자산 원금", "🏠", non_cash_invs)
 
-
-    with tab_fam:
-        _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 상세 현황 — 환 준영")
-        render_detail_table("준영")
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 상세 현황 — \U0001f469 지윤")
-        render_detail_table("지윤")
-    with tab_jy:
-        _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 상세 현황")
-        render_detail_table("준영")
-    with tab_ji:
-        _draw_pie_tab("지윤", total_data["ji_p"], cash_data["ji_p"], non_cash_data["ji_p"], is_total=False)
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 상세 현황")
-        render_detail_table("지윤")
+with tab_fam:
+    _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
+    draw_light_divider()
+    st.subheader("\U0001f4cb 계좌별 상세 현황 — 👨 준영")
+    render_detail_table("준영")
+    draw_light_divider()
+    st.subheader("\U0001f4cb 계좌별 상세 현황 — \U0001f469 지윤")
+    render_detail_table("지윤")
+with tab_jy:
+    _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
+    draw_light_divider()
+    st.subheader("\U0001f4cb 계좌별 상세 현황")
+    render_detail_table("준영")
+with tab_ji:
+    _draw_pie_tab("지윤", total_data["ji_p"], cash_data["ji_p"], non_cash_data["ji_p"], is_total=False)
+    draw_light_divider()
+    st.subheader("\U0001f4cb 계좌별 상세 현황")
+    render_detail_table("지윤")
 
 draw_light_divider()
+
 
 
 
