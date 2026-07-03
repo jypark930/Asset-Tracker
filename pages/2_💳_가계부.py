@@ -81,177 +81,6 @@ draw_neon_divider()
 txns = get_transactions(year, month)
 selected_category = None
 
-cat_colors = ["#ff6b00", "#1b263b", "#3b82f6", "#94a3b8", "#f97316", "#475569"]
-
-if txns:
-    cat_sum = {c: 0 for c in CATEGORIES}
-    for t in txns:
-        cat_sum[t["category"]] = cat_sum.get(t["category"], 0) + t["amount"]
-    total_v = sum(t["amount"] for t in txns)
-    cat_items = sorted(cat_sum.items(), key=lambda x: -x[1])
-
-    # ── 변동지출 구성 파이 차트 ────────────────────────
-    cat_for_pie = {k: v for k, v in cat_sum.items() if v > 0}
-    if cat_for_pie:
-        import plotly.express as px
-        fig2 = px.pie(
-            values=list(cat_for_pie.values()),
-            names=list(cat_for_pie.keys()),
-            color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
-            color_discrete_map={"준영점심": "#10b981"},
-            hole=0.5,
-        )
-        fig2.update_traces(
-            textposition="inside", 
-            textinfo="percent+label",
-            marker=dict(line=dict(color='#ffffff', width=4))
-        )
-        fig2.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
-            height=320, margin=dict(l=0, r=0, t=10, b=0),
-            legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
-        )
-        st.plotly_chart(fig2, use_container_width=True)
-        
-        categories_list = list(cat_for_pie.keys())
-        selected_pill = st.pills("🔍 카테고리를 선택하여 내역을 필터링하세요:", options=["🌟 전체보기"] + categories_list, default="🌟 전체보기")
-        
-        if selected_pill and selected_pill != "🌟 전체보기":
-            selected_category = selected_pill
-
-    draw_neon_divider()
-
-    # ── 카테고리별 요약 카드 (전월비 포함) ──────────────────────────────
-    prev_month = month - 1 if month > 1 else 12
-    prev_year  = year  if month > 1 else year - 1
-    prev_txns = get_transactions(prev_year, prev_month)
-    prev_cat_sum = {}
-    if prev_txns:
-        for t in prev_txns:
-            prev_cat_sum[t["category"]] = prev_cat_sum.get(t["category"], 0) + t["amount"]
-    prev_total_v = sum(t["amount"] for t in prev_txns) if prev_txns else 0
-
-    def get_mom_badge(curr, prev):
-        if prev == 0 and curr == 0:
-            return "<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:0.75rem;font-weight:700;'>- 변동 없음</div>"
-        
-        delta = curr - prev
-        
-        if delta > 0:
-            return f"<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#fee2e2;color:#ef4444;font-size:0.75rem;font-weight:700;'>+{delta:,}원</div>"
-        elif delta < 0:
-            return f"<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#dcfce7;color:#16a34a;font-size:0.75rem;font-weight:700;'>{delta:,}원</div>"
-        else:
-            return "<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:0.75rem;font-weight:700;'>- 변동 없음</div>"
-
-    cards_html = "<div style='display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;'>"
-    for idx, (cat, amt) in enumerate(cat_items):
-        color = cat_colors[idx % len(cat_colors)]
-        badge = get_mom_badge(amt, prev_cat_sum.get(cat, 0))
-        cards_html += f"""
-        <div style='background:#fff;border:1px solid #e2e8f0;border-radius:12px;
-                    padding:14px 16px;min-width:110px;flex:1;
-                    box-shadow:0 4px 12px rgba(0,0,0,0.03);text-align:center;'>
-          <div style='width:24px;height:3px;background:{color};border-radius:2px;margin:0 auto 8px;'></div>
-          <div style='font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:6px;'>{cat}</div>
-          <div style='font-size:1.1rem;font-weight:800;color:#1e293b;'>&#8361;{amt:,}</div>
-          {badge}
-        </div>"""
-    
-    # 합계 카드
-    tot_badge = get_mom_badge(total_v, prev_total_v)
-    cards_html += f"""
-        <div style='background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
-                    padding:14px 16px;min-width:130px;flex:1;
-                    box-shadow:0 4px 12px rgba(0,0,0,0.03);text-align:center;'>
-          <div style='width:24px;height:3px;background:#ff6b00;border-radius:2px;margin:0 auto 8px;'></div>
-          <div style='font-size:0.75rem;color:#ff6b00;font-weight:600;margin-bottom:6px;'>변동지출 합계</div>
-          <div style='font-size:1.15rem;font-weight:800;color:#ff6b00;'>&#8361;{total_v:,}</div>
-          {tot_badge}
-        </div>"""
-
-    def merge_data(curr_raw, prev_raw):
-        curr = curr_raw or {}
-        prev = prev_raw or {}
-        cf = curr.get("confirmed_fields")
-        if cf is None or not isinstance(cf, list):
-            if curr.get("updated_by") == "시스템":
-                cf = [k for k, v in curr.items() if isinstance(v, (int, float)) and k not in ("id", "year", "month", "user_id")]
-            else:
-                cf = []
-        res = {}
-        all_keys = set(curr.keys()) | set(prev.keys())
-        for k in all_keys:
-            if k in ("id", "year", "month", "user_id", "updated_by", "updated_at", "created_at", "confirmed_fields"):
-                continue
-            if k in cf:
-                res[k] = curr.get(k, 0)
-            else:
-                res[k] = prev.get(k, 0)
-        return res
-
-    prev_month = month - 1 if month > 1 else 12
-    prev_year  = year  if month > 1 else year - 1
-
-    inc_raw = get_monthly_income(year, month)
-    fixed_raw = get_fixed_costs(year, month)
-    util_raw = get_utility_costs(year, month)
-    
-    prev_inc_raw = get_monthly_income(prev_year, prev_month)
-    prev_fixed_raw = get_fixed_costs(prev_year, prev_month)
-    prev_util_raw = get_utility_costs(prev_year, prev_month)
-    
-    inc = merge_data(inc_raw, prev_inc_raw)
-    fixed = merge_data(fixed_raw, prev_fixed_raw)
-    util = merge_data(util_raw, prev_util_raw)
-    
-    def g(d, k): return int(d.get(k, 0) or 0)
-    
-    jy_tot = g(inc,"junyoung_salary") + g(inc,"junyoung_bonus")
-    jd_tot = g(inc,"jiyun_salary") + g(inc,"jiyun_incentive")
-    from utils.db import get_other_incomes
-    other_inc = sum(item.get("amount", 0) for item in get_other_incomes(year, month))
-    total_income = jy_tot + jd_tot + other_inc
-    
-    housing   = g(fixed,"loan_payment") + g(fixed,"rent") + g(fixed,"maintenance_fee")
-    car_ins   = g(fixed,"car_insurance") + g(fixed,"driver_insurance") + g(fixed,"health_insurance") + g(fixed,"cancer_insurance")
-    telecom   = g(fixed,"junyoung_phone") + g(fixed,"jiyun_phone") + g(fixed,"internet")
-    transport = g(fixed,"junyoung_transport") + g(fixed,"jiyun_transport") + g(fixed,"fuel") + g(fixed,"hipass")
-    misc      = g(fixed,"junyoung_club") + g(fixed,"jiyun_club") + g(fixed,"junyoung_parents") + g(fixed,"jiyun_parents")
-    subs      = g(fixed,"coupang") + g(fixed,"youtube") + g(fixed,"naver")
-    savings   = g(fixed,"junyoung_savings1") + g(fixed,"junyoung_savings2") + g(fixed,"jiyun_savings1") + g(fixed,"jiyun_savings2")
-    allowance = g(fixed,"junyoung_allowance") + g(fixed,"jiyun_allowance")
-    total_fixed = housing + g(fixed,"car_tax") + car_ins + telecom + transport + misc + subs + savings + allowance
-    
-    livable = total_income - total_fixed
-    
-    total_utility = g(util,"electricity") + g(util,"water") + g(util,"gas")
-    
-    cat_sum_3 = {}
-    for t in txns:
-        c = t.get("category","기타")
-        cat_sum_3[c] = cat_sum_3.get(c,0) + t.get("amount",0)
-        
-    daily_total = (int(cat_sum_3.get("식비",0)) + int(cat_sum_3.get("생필품비",0)) + 
-                   int(cat_sum_3.get("간식비",0)) + int(cat_sum_3.get("외식비",0)) + 
-                   int(cat_sum_3.get("문화비",0)) + int(cat_sum_3.get("준영점심",0)))
-    medical = int(cat_sum_3.get("의료비", 0))
-    gift = int(cat_sum_3.get("경조비",0))
-    total_variable = total_utility + daily_total + medical + gift
-    
-    investable = livable - total_variable
-    
-    cards_html += f"""
-        <div style='background:#f0fdf4;border:1px solid #86efac;border-radius:12px;
-                    padding:14px 16px;min-width:130px;flex:1;
-                    box-shadow:0 4px 12px rgba(0,0,0,0.03);text-align:center;'>
-          <div style='width:24px;height:3px;background:#10b981;border-radius:2px;margin:0 auto 8px;'></div>
-          <div style='font-size:0.75rem;color:#10b981;font-weight:600;margin-bottom:6px;'>익월 투자 가능</div>
-          <div style='font-size:1.15rem;font-weight:800;color:#10b981;'>&#8361;{investable:,}</div>
-        </div>"""
-    cards_html += "</div>"
-    st.markdown(cards_html, unsafe_allow_html=True)
-    draw_neon_divider()
 
 # ── 달력 뷰 (일별 합계) ──────────────────────────────────
 st.subheader("📅 월별 달력")
@@ -487,6 +316,14 @@ else:
 # ═══════════════════════════════════════════════════════════
 
 draw_neon_divider()
+
+
+# ── 카테고리 필터 (pills) ──────────────────────
+if txns:
+    _cats_avail = sorted({t["category"] for t in txns if t.get("category")})
+    _sel = st.pills("🔍 카테고리 필터", options=["🌟 전체보기"] + _cats_avail, default="🌟 전체보기")
+    if _sel and _sel != "🌟 전체보기":
+        selected_category = _sel
 
 # ── 변동지출 내역 ──────────────────────
 if selected_category:

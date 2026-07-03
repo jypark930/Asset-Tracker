@@ -133,6 +133,97 @@ grid_html = f"""<div style="display: grid; grid-template-columns: repeat(3, 1fr)
 </div>"""
 st.markdown(grid_html, unsafe_allow_html=True)
 
+draw_neon_divider()
+
+# ── 카테고리별 요약 카드 (전월비 포함) ──────────────────────────────
+from utils.db import CATEGORIES, get_monthly_income, get_fixed_costs, get_utility_costs, get_other_incomes
+
+_cat_colors = ["#ff6b00", "#1b263b", "#3b82f6", "#94a3b8", "#f97316", "#475569"]
+_txns = get_transactions(year, month)
+
+if _txns:
+    _cat_sum = {c: 0 for c in CATEGORIES}
+    for _t in _txns:
+        _cat_sum[_t["category"]] = _cat_sum.get(_t["category"], 0) + _t["amount"]
+    _total_v = sum(_t["amount"] for _t in _txns)
+    _cat_items = sorted(_cat_sum.items(), key=lambda x: -x[1])
+
+    _prev_m = month - 1 if month > 1 else 12
+    _prev_y = year if month > 1 else year - 1
+    _prev_txns = get_transactions(_prev_y, _prev_m)
+    _prev_cat_sum = {}
+    if _prev_txns:
+        for _t in _prev_txns:
+            _prev_cat_sum[_t["category"]] = _prev_cat_sum.get(_t["category"], 0) + _t["amount"]
+    _prev_total_v = sum(_t["amount"] for _t in _prev_txns) if _prev_txns else 0
+
+    def _mom_badge(curr, prev):
+        if prev == 0 and curr == 0:
+            return "<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:0.75rem;font-weight:700;'>- 변동 없음</div>"
+        delta = curr - prev
+        if delta > 0:
+            return f"<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#fee2e2;color:#ef4444;font-size:0.75rem;font-weight:700;'>+{delta:,}원</div>"
+        elif delta < 0:
+            return f"<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#dcfce7;color:#16a34a;font-size:0.75rem;font-weight:700;'>{delta:,}원</div>"
+        else:
+            return "<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:0.75rem;font-weight:700;'>- 변동 없음</div>"
+
+    _cards_html = "<div style='display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;'>"
+    for _idx, (_cat, _amt) in enumerate(_cat_items):
+        if _amt == 0:
+            continue
+        _color = _cat_colors[_idx % len(_cat_colors)]
+        _badge = _mom_badge(_amt, _prev_cat_sum.get(_cat, 0))
+        _cards_html += f"""
+        <div style='background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+                    padding:14px 16px;min-width:110px;flex:1;
+                    box-shadow:0 4px 12px rgba(0,0,0,0.03);text-align:center;'>
+          <div style='width:24px;height:3px;background:{_color};border-radius:2px;margin:0 auto 8px;'></div>
+          <div style='font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:6px;'>{_cat}</div>
+          <div style='font-size:1.1rem;font-weight:800;color:#1e293b;'>&#8361;{_amt:,}</div>
+          {_badge}
+        </div>"""
+
+    _tot_badge = _mom_badge(_total_v, _prev_total_v)
+    _cards_html += f"""
+        <div style='background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
+                    padding:14px 16px;min-width:130px;flex:1;
+                    box-shadow:0 4px 12px rgba(0,0,0,0.03);text-align:center;'>
+          <div style='width:24px;height:3px;background:#ff6b00;border-radius:2px;margin:0 auto 8px;'></div>
+          <div style='font-size:0.75rem;color:#ff6b00;font-weight:600;margin-bottom:6px;'>변동지출 합계</div>
+          <div style='font-size:1.15rem;font-weight:800;color:#ff6b00;'>&#8361;{_total_v:,}</div>
+          {_tot_badge}
+        </div>"""
+    _cards_html += "</div>"
+    st.markdown(_cards_html, unsafe_allow_html=True)
+
+    draw_neon_divider()
+
+    # ── 변동지출 구성 도넛 차트 ──────────────────────────────
+    _cat_for_pie = {k: v for k, v in _cat_sum.items() if v > 0}
+    if _cat_for_pie:
+        _fig_pie = px.pie(
+            values=list(_cat_for_pie.values()),
+            names=list(_cat_for_pie.keys()),
+            color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
+            color_discrete_map={"준영점심": "#10b981"},
+            hole=0.5,
+        )
+        _fig_pie.update_traces(
+            textposition="inside",
+            textinfo="percent+label",
+            marker=dict(line=dict(color='#ffffff', width=4))
+        )
+        _fig_pie.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
+            height=320, margin=dict(l=0, r=0, t=10, b=0),
+            legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
+        )
+        st.plotly_chart(_fig_pie, use_container_width=True)
+
+draw_neon_divider()
+
+
 # ── 🎯 자산 목표 진척도 ──────────────────────────────────
 target_amount = goal_data.get("target_amount", 0) if goal_data else 0
 
