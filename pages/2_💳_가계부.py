@@ -316,6 +316,36 @@ with st.expander("✏️ 내역 수정 / 삭제", expanded=False):
 draw_neon_divider()
 
 
+# ── 카테고리별 막대 차트 ──────────────────────────────
+if txns:
+    import plotly.graph_objects as go
+    _cat_colors_bar = ["#ff6b00", "#1b263b", "#3b82f6", "#94a3b8", "#f97316", "#475569"]
+    _cat_sum_bar = {}
+    for _t in txns:
+        _c = _t.get("category", "기타")
+        _cat_sum_bar[_c] = _cat_sum_bar.get(_c, 0) + _t.get("amount", 0)
+    _cat_items_bar = sorted(_cat_sum_bar.items(), key=lambda x: -x[1])
+    _cats_bar = [c for c, _ in _cat_items_bar]
+    _amts_bar = [a for _, a in _cat_items_bar]
+    _bar_colors = [_cat_colors_bar[i % len(_cat_colors_bar)] for i in range(len(_cats_bar))]
+    _fig_bar = go.Figure(go.Bar(
+        x=_cats_bar, y=_amts_bar,
+        marker_color=_bar_colors,
+        text=[f"₩{a:,}" for a in _amts_bar],
+        textposition="outside",
+        hoverinfo="none",
+    ))
+    _fig_bar.update_layout(
+        height=280, margin=dict(l=20, r=20, t=20, b=20),
+        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        xaxis=dict(showgrid=False, tickfont=dict(size=13, color="#1e293b"), fixedrange=True),
+        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", tickformat=",.0f",
+                   tickprefix="₩", tickfont=dict(size=11, color="#64748b"), fixedrange=True),
+        font=dict(family="sans-serif"),
+        dragmode=False,
+    )
+    st.plotly_chart(_fig_bar, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
+
 # ── 카테고리 필터 (pills) ──────────────────────
 if txns:
     _cats_avail = sorted({t["category"] for t in txns if t.get("category")})
