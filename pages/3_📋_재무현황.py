@@ -27,17 +27,6 @@ if not is_authenticated():
 
 now = datetime.now()
 
-# ── 임시 데이터 마이그레이션 도구 (최상단) ────────────────────
-st.warning("⚠️ [임시 마이그레이션] 모든 과거 '생활비' 내역을 '기타생활비'로 일괄 변경합니다.")
-if st.button("과거 생활비 데이터 마이그레이션 실행", type="primary"):
-    from utils.auth import get_supabase_client
-    client = get_supabase_client()
-    res = client.table("transactions").update({"category": "기타생활비"}).eq("category", "생활비").execute()
-    st.success(f"성공적으로 변경되었습니다. (영향받은 데이터 수: {len(res.data)})")
-    st.info("이제 가계부 탭에서 '기타생활비'를 '식비' 또는 '생필품비'로 개별 분류해주세요.")
-    st.rerun()
-st.markdown("<hr style='margin:16px 0; border:none; border-top:2px dashed #ff6b00;'>", unsafe_allow_html=True)
-
 def draw_neon_divider():
     st.markdown('<hr style="height:1px;border:none;background:#e2e8f0;margin:16px 0;">', unsafe_allow_html=True)
 
@@ -353,14 +342,15 @@ for t in txns:
     c = t.get("category","기타")
     cat_sum[c] = cat_sum.get(c,0) + t.get("amount",0)
 
-living   = int(cat_sum.get("생활비",0)) + int(cat_sum.get("기타생활비",0)) + int(cat_sum.get("식비",0)) + int(cat_sum.get("생필품비",0))
+food     = int(cat_sum.get("식비",0))
+necessity= int(cat_sum.get("생필품비",0))
 snack    = int(cat_sum.get("간식비",0))
 eating   = int(cat_sum.get("외식비",0))
 culture  = int(cat_sum.get("문화비",0))
 jy_lunch = int(cat_sum.get("준영점심",0))
 medical  = int(cat_sum.get("의료비", 0)) # 의료비는 무조건 가계부 합산을 사용
 gift     = int(cat_sum.get("경조비",0)) # 경조비도 무조건 가계부 합산을 사용
-daily_total    = living + snack + eating + culture + jy_lunch
+daily_total    = food + necessity + snack + eating + culture + jy_lunch
 total_variable = total_utility + daily_total + medical + gift
 
 investable    = livable - total_variable
@@ -713,7 +703,8 @@ _row_item("가스비", gas_v, "gas"         in util_cf, "gas",         util, uti
 # 생활지출
 util_daily_keys = set(["living", "snack", "eating", "culture", "jy_lunch"])
 _row_h2("생활지출 (가계부 자동연동)", daily_total, True)
-_row_readonly("생활비",    living)
+_row_readonly("식비",      food)
+_row_readonly("생필품비",  necessity)
 _row_readonly("간식비",    snack)
 _row_readonly("외식비",    eating)
 _row_readonly("문화비",    culture)
