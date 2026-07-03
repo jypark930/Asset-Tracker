@@ -253,65 +253,63 @@ with st.expander("➕ 새 지출 추가", expanded=False):
 st.write("")
 
 # ── 내역 테이블 (편집 가능) ───────────────────────────
-if not txns:
-    st.info(f"📌 {year}년 {month}월 변동지출 내역이 없습니다.")
-else:
-    df = pd.DataFrame(txns)
-    df_edit = df[["id", "day", "amount", "description", "category"]].copy()
-    df_edit.insert(0, "삭제", False)
+with st.expander("✏️ 내역 수정 / 삭제", expanded=False):
+    if not txns:
+        st.info(f"📌 {year}년 {month}월 변동지출 내역이 없습니다.")
+    else:
+        df = pd.DataFrame(txns)
+        df_edit = df[["id", "day", "amount", "description", "category"]].copy()
+        df_edit.insert(0, "삭제", False)
 
-    edited = st.data_editor(
-        df_edit,
-        column_config={
-            "삭제":        st.column_config.CheckboxColumn("", width=50),
-            "id":          None,
-            "day":         st.column_config.NumberColumn("일", min_value=1, max_value=31, width=45, alignment="center"),
-            "amount":      st.column_config.NumberColumn("금액(₩)", min_value=0, format="₩%,d"),
-            "description": st.column_config.TextColumn("이용처"),
-            "category":    st.column_config.SelectboxColumn("구분", options=CATEGORIES),
-        },
-        hide_index=True,
-        use_container_width=True,
-        key=f"tx_editor_{year}_{month}",
-    )
+        edited = st.data_editor(
+            df_edit,
+            column_config={
+                "삭제":        st.column_config.CheckboxColumn("", width=50),
+                "id":          None,
+                "day":         st.column_config.NumberColumn("일", min_value=1, max_value=31, width=45, alignment="center"),
+                "amount":      st.column_config.NumberColumn("금액(₩)", min_value=0, format="₩%,d"),
+                "description": st.column_config.TextColumn("이용처"),
+                "category":    st.column_config.SelectboxColumn("구분", options=CATEGORIES),
+            },
+            hide_index=True,
+            use_container_width=True,
+            key=f"tx_editor_{year}_{month}",
+        )
 
+        b1, b2, _ = st.columns([1, 1, 5])
+        with b1:
+            if st.button("💾 수정 저장", use_container_width=True):
+                changed = 0
+                for idx, row in edited.iterrows():
+                    if row["삭제"]:
+                        continue
+                    orig = df[df["id"] == row["id"]].iloc[0]
+                    diff = {}
+                    if int(row["day"])    != int(orig["day"]):         diff["day"]         = int(row["day"])
+                    if int(row["amount"]) != int(orig["amount"]):      diff["amount"]      = int(row["amount"])
+                    if row["description"] != orig["description"]:      diff["description"] = row["description"]
+                    if row["category"]    != orig["category"]:         diff["category"]    = row["category"]
+                    if diff:
+                        update_transaction(row["id"], diff)
+                        changed += 1
+                if changed:
+                    from utils.audio import play_notice_sound
+                    play_notice_sound()
+                    st.success(f"✅ {changed}건 수정 완료")
+                    st.rerun()
+                else:
+                    st.info("변경된 내용이 없습니다.")
 
-    b1, b2, _ = st.columns([1, 1, 5])
-    with b1:
-        if st.button("💾 수정 저장", use_container_width=True):
-            changed = 0
-            for idx, row in edited.iterrows():
-                if row["삭제"]:
-                    continue
-                orig = df[df["id"] == row["id"]].iloc[0]
-                diff = {}
-                if int(row["day"])    != int(orig["day"]):         diff["day"]         = int(row["day"])
-                if int(row["amount"]) != int(orig["amount"]):      diff["amount"]      = int(row["amount"])
-                if row["description"] != orig["description"]:      diff["description"] = row["description"]
-                if row["category"]    != orig["category"]:         diff["category"]    = row["category"]
-                if diff:
-                    update_transaction(row["id"], diff)
-                    changed += 1
-            if changed:
+        with b2:
+            to_del = edited[edited["삭제"] == True]["id"].tolist()
+            if st.button(f"🗑️ 선택 삭제 ({len(to_del)}건)", use_container_width=True,
+                         disabled=len(to_del) == 0):
+                for tid in to_del:
+                    delete_transaction(tid)
                 from utils.audio import play_notice_sound
                 play_notice_sound()
-                st.success(f"✅ {changed}건 수정 완료")
+                st.success(f"✅ {len(to_del)}건 삭제 완료")
                 st.rerun()
-            else:
-                st.info("변경된 내용이 없습니다.")
-
-    with b2:
-        to_del = edited[edited["삭제"] == True]["id"].tolist()
-        if st.button(f"🗑️ 선택 삭제 ({len(to_del)}건)", use_container_width=True,
-                     disabled=len(to_del) == 0):
-            for tid in to_del:
-                delete_transaction(tid)
-            from utils.audio import play_notice_sound
-            play_notice_sound()
-            st.success(f"✅ {len(to_del)}건 삭제 완료")
-            st.rerun()
-
-
 
 # ═══════════════════════════════════════════════════════════
 
