@@ -513,7 +513,7 @@ SKIP_STOCK_NAMES = {"예수금(원화)", "예수금(달러)", "예수금(현금)
 STOCK_INPUT_ACCOUNTS = ["총 예수금", "중개형ISA", "IRP", "KB", "TOSS", "업비트"]
 PRINCIPAL_ONLY_ACCOUNTS = ["총 예수금", "CMA", "청년도약"]  # 원금만 수정 가능한 계좌
 
-def render_detail_table(owner_key):
+def render_detail_table(owner_key, prefix=""):
     owner_invs = [i for i in invests if i["owner"] == owner_key]
     if not owner_invs:
         st.info(f"{owner_key}님의 등록된 자산이 없습니다.")
@@ -535,7 +535,7 @@ def render_detail_table(owner_key):
     cash_invs = [i for i in owner_invs if i["account_type"] in INVESTMENT_ACCOUNTS["현금성 자산"]]
     non_cash_invs = [i for i in owner_invs if i["account_type"] not in INVESTMENT_ACCOUNTS["현금성 자산"]]
 
-    def _render_group(title, icon, invs):
+    def _render_group(title, icon, invs, prefix=""):
         if not invs: return
         
         # 그룹 총액 계산
@@ -636,7 +636,7 @@ def render_detail_table(owner_key):
 </div>''', unsafe_allow_html=True)
 
                     with col_edit:
-                        stk_edit_key = f"se_{inv['id']}_{i}"
+                        stk_edit_key = f"{prefix}se_{inv['id']}_{i}"
                         st.markdown(f"""<style>
                         div[data-testid="stButton"]:has(button[title="{stk_edit_key}"]) button {{
                             border-right:1px solid #e2e8f0 !important;
@@ -652,11 +652,11 @@ def render_detail_table(owner_key):
                             from utils.stock_price import get_current_price
                             st.markdown(f"<div style='font-size:0.9rem;font-weight:700;color:#334155;margin-bottom:8px;'>✏️ {sname} 수정</div>", unsafe_allow_html=True)
                             c1, c2 = st.columns(2)
-                            new_qty = c1.number_input("수량", value=float(qty), step=0.1, key=f"q_{inv['id']}_{sname}")
-                            new_avg = c2.number_input("평단가 (₩)", value=int(s_prin/qty if qty else 0), step=1000, key=f"a_{inv['id']}_{sname}")
+                            new_qty = c1.number_input("수량", value=float(qty), step=0.1, key=f"{prefix}q_{inv['id']}_{sname}")
+                            new_avg = c2.number_input("평단가 (₩)", value=int(s_prin/qty if qty else 0), step=1000, key=f"{prefix}a_{inv['id']}_{sname}")
                             
                             b1, b2 = st.columns([1, 2])
-                            if b1.button("🗑️ 삭제", key=f"del_{inv['id']}_{sname}", use_container_width=True, disabled=is_closed):
+                            if b1.button("🗑️ 삭제", key=f"{prefix}del_{inv['id']}_{sname}", use_container_width=True, disabled=is_closed):
                                 stocks = [sd for sd in stocks if sd.get("stock_name") != sname]
                                 new_tot_p = sum((sd.get("principal", 0) or 0) for sd in stocks)
                                 new_tot_a = sum((sd.get("valuation",  0) or 0) for sd in stocks)
@@ -664,7 +664,7 @@ def render_detail_table(owner_key):
                                 replace_investment_stocks(inv['id'], stocks)
                                 st.rerun()
 
-                            if b2.button("🔄 현재가 갱신 및 저장", key=f"save_{inv['id']}_{sname}", use_container_width=True, type="primary", disabled=is_closed):
+                            if b2.button("🔄 현재가 갱신 및 저장", key=f"{prefix}save_{inv['id']}_{sname}", use_container_width=True, type="primary", disabled=is_closed):
                                 info  = get_current_price(sname)
                                 cur_p = info["price"] if info else s.get("current_price", 0)
                                 for sd in stocks:
@@ -691,7 +691,7 @@ def render_detail_table(owner_key):
   <span style="font-size:clamp(0.9rem,3.5vw,1.05rem);font-weight:700;color:#1e293b;">원금: {int(round(tot_p)):,}원</span>
 </div>''', unsafe_allow_html=True)
                 with col_edit:
-                    edit_key_p = f"ep_{inv['id']}"
+                    edit_key_p = f"{prefix}ep_{inv['id']}"
                     st.markdown(f"""<style>
                     div[data-testid="stButton"]:has(button[title="{edit_key_p}"]) button {{
                         border-radius:0 12px 12px 0 !important;
@@ -703,8 +703,8 @@ def render_detail_table(owner_key):
                     </style>""", unsafe_allow_html=True)
                     with st.popover("✏️", help=edit_key_p):
                         st.markdown(f"<div style='font-size:0.9rem;font-weight:700;color:#334155;margin-bottom:8px;'>✏️ {acc_type} 원금 수정</div>", unsafe_allow_html=True)
-                        new_p = st.number_input("원금 (₩)", value=int(tot_p), step=10000, key=f"p_{inv['id']}")
-                        if st.button("💾 저장", key=f"save_acc_{inv['id']}", use_container_width=True, type="primary", disabled=is_closed):
+                        new_p = st.number_input("원금 (₩)", value=int(tot_p), step=10000, key=f"{prefix}p_{inv['id']}")
+                        if st.button("💾 저장", key=f"{prefix}save_acc_{inv['id']}", use_container_width=True, type="primary", disabled=is_closed):
                             upsert_investment(year, month, owner_key, acc_type, new_p, new_p)
                             st.rerun()
 
@@ -717,7 +717,7 @@ def render_detail_table(owner_key):
   <span style="font-size:clamp(0.9rem,3.5vw,1.05rem);font-weight:700;color:#1e293b;">원금: {int(round(tot_p)):,}원</span>
 </div>''', unsafe_allow_html=True)
                 with col_edit:
-                    edit_key_s = f"es_{inv['id']}"
+                    edit_key_s = f"{prefix}es_{inv['id']}"
                     st.markdown(f"""<style>
                     div[data-testid="stButton"]:has(button[title="{edit_key_s}"]) button {{
                         border-radius:0 12px 12px 0 !important;
@@ -730,9 +730,9 @@ def render_detail_table(owner_key):
                     with st.popover("✏️", help=edit_key_s):
                         st.markdown(f"<div style='font-size:0.9rem;font-weight:700;color:#334155;margin-bottom:8px;'>✏️ {acc_type} 수정</div>", unsafe_allow_html=True)
                         c1, c2 = st.columns(2)
-                        new_p = c1.number_input("원금 (₩)", value=int(tot_p), step=10000, key=f"p_{inv['id']}")
-                        new_a = c2.number_input("평가액 (₩)", value=int(tot_a), step=10000, key=f"a_{inv['id']}")
-                        if st.button("💾 저장", key=f"save_acc_{inv['id']}", use_container_width=True, type="primary", disabled=is_closed):
+                        new_p = c1.number_input("원금 (₩)", value=int(tot_p), step=10000, key=f"{prefix}p_{inv['id']}")
+                        new_a = c2.number_input("평가액 (₩)", value=int(tot_a), step=10000, key=f"{prefix}a_{inv['id']}")
+                        if st.button("💾 저장", key=f"{prefix}save_acc_{inv['id']}", use_container_width=True, type="primary", disabled=is_closed):
                             upsert_investment(year, month, owner_key, acc_type, new_p, new_a)
                             st.rerun()
 
@@ -744,27 +744,27 @@ def render_detail_table(owner_key):
 </div>
 ''', unsafe_allow_html=True)
 
-    _render_group("현금성 자산 원금", "💰", cash_invs)
-    _render_group("비현금성 자산 원금", "🏠", non_cash_invs)
+    _render_group("현금성 자산 원금", "💰", cash_invs, prefix)
+    _render_group("비현금성 자산 원금", "🏠", non_cash_invs, prefix)
 
 with tab_fam:
     _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
     draw_light_divider()
     st.subheader("\U0001f4cb 계좌별 상세 현황 — 👨 준영")
-    render_detail_table("준영")
+    render_detail_table("준영", prefix="fam_jy_")
     draw_light_divider()
     st.subheader("\U0001f4cb 계좌별 상세 현황 — \U0001f469 지윤")
-    render_detail_table("지윤")
+    render_detail_table("지윤", prefix="fam_ji_")
 with tab_jy:
     _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
     draw_light_divider()
     st.subheader("\U0001f4cb 계좌별 상세 현황")
-    render_detail_table("준영")
+    render_detail_table("준영", prefix="tab_jy_")
 with tab_ji:
     _draw_pie_tab("지윤", total_data["ji_p"], cash_data["ji_p"], non_cash_data["ji_p"], is_total=False)
     draw_light_divider()
     st.subheader("\U0001f4cb 계좌별 상세 현황")
-    render_detail_table("지윤")
+    render_detail_table("지윤", prefix="tab_ji_")
 
 draw_light_divider()
 
