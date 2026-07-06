@@ -37,7 +37,7 @@ def _get_card_html(title: str, value: str, delta: str = "", border_color: str = 
     return f"""<div style="{bg_style} border-radius: 12px; padding: clamp(10px, 2.5vw, 20px) clamp(4px, 1.5vw, 14px); height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; overflow: hidden; transition: all 0.3s ease;">
 <div style="width: 24px; height: 3px; background-color: {border_color}; border-radius: 2px; margin-bottom: clamp(6px, 2vw, 12px);"></div>
 <div style="font-size: clamp(0.65rem, 2.5vw, 0.8rem);color:{title_color};font-weight:700;letter-spacing:0.02em;margin-bottom:6px;white-space:nowrap;">{title}</div>
-<div style="font-size: clamp(0.85rem, 3.5vw, 1.35rem);font-weight:800;color:{value_color};font-family:'KoPubWorldBold',monospace;line-height:1.2;letter-spacing:-0.5px;white-space:nowrap;">{value}</div>
+<div style="font-size: clamp(0.85rem, 3.5vw, 1.35rem);font-weight:800;color:{value_color};font-family:'KoPubWorldBold', -apple-system, BlinkMacSystemFont, sans-serif;line-height:1.2;letter-spacing:-0.5px;white-space:nowrap;">{value}</div>
 {delta_html}
 </div>"""
 
