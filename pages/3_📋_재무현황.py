@@ -327,7 +327,7 @@ car_ins   = g(fixed,"car_insurance") + g(fixed,"driver_insurance") + g(fixed,"he
 telecom   = g(fixed,"junyoung_phone") + g(fixed,"jiyun_phone") + g(fixed,"internet")
 transport = g(fixed,"junyoung_transport") + g(fixed,"jiyun_transport") + g(fixed,"fuel") + g(fixed,"hipass")
 misc      = g(fixed,"junyoung_club") + g(fixed,"jiyun_club") + g(fixed,"junyoung_parents") + g(fixed,"jiyun_parents")
-subs      = g(fixed,"coupang") + g(fixed,"youtube") + g(fixed,"naver")
+subs      = g(fixed,"coupang") + g(fixed,"youtube") + g(fixed,"naver") + g(fixed,"antigravity")
 savings   = g(fixed,"junyoung_savings1") + g(fixed,"junyoung_savings2") + g(fixed,"jiyun_savings1") + g(fixed,"jiyun_savings2")
 allowance = g(fixed,"junyoung_allowance") + g(fixed,"jiyun_allowance")
 total_fixed = housing + g(fixed,"car_tax") + car_ins + telecom + transport + misc + subs + savings + allowance
@@ -659,6 +659,7 @@ FIXED_TREE = [
     ]),
     ("구독 및 멤버십", subs, [
         ("쿠팡 와우","coupang",1000), ("유튜브","youtube",1000), ("네이버멤버십","naver",1000),
+        ("안티그래비티","antigravity",1000),
     ]),
     ("저축액", savings, [
         ("준영 희망적금","junyoung_savings1",10000), ("준영 주택청약","junyoung_savings2",10000),

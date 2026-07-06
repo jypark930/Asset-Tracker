@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import os
 import json
 import pathlib
+import base64
 from datetime import datetime, timezone
 import extra_streamlit_components as stx
 from utils.local_auth import local_storage
@@ -51,34 +52,43 @@ def get_supabase_client() -> Client:
 
 # ─── 세션 쿠키 & LocalStorage 저장/로드 ────────────────────────────────────
 
-def _save_session(email: str, access_token: str, refresh_token: str) -> bool:
+def _encode_cred(email: str, password: str) -> str:
+    """이메일과 비밀번호를 단순 Base64로 난독화"""
+    raw = f"{email}::{password}"
+    return base64.b64encode(raw.encode('utf-8')).decode('utf-8')
+
+def _decode_cred(encoded: str) -> tuple[str, str] | None:
+    """난독화된 자격증명 복원"""
+    try:
+        raw = base64.b64decode(encoded.encode('utf-8')).decode('utf-8')
+        email, pwd = raw.split("::", 1)
+        return email, pwd
+    except Exception:
+        return None
+
+def _save_session(encoded_cred: str) -> bool:
     """로그인 정보를 브라우저 쿠키와 LocalStorage에 이중 저장"""
     try:
         cookie_manager = get_cookie_manager()
-        cookie_manager.set(_COOKIE_KEY_REFRESH, refresh_token, max_age=30*24*60*60)
-        cookie_manager.set(_COOKIE_KEY_EMAIL, email, max_age=30*24*60*60)
+        cookie_manager.set("sb_auto_login", encoded_cred, max_age=365*24*60*60)
     except Exception as e:
         print(f"Cookie save error: {e}")
         
-    ls_token_done = False
-    ls_email_done = False
+    ls_done = False
     try:
-        res_token = local_storage("set", storage_key="sb_refresh_token", value=refresh_token, component_key="ls_set_token")
-        if res_token == "set_done": ls_token_done = True
-        
-        res_email = local_storage("set", storage_key="sb_user_email", value=email, component_key="ls_set_email")
-        if res_email == "set_done": ls_email_done = True
+        res = local_storage("set", storage_key="sb_auto_login", value=encoded_cred, component_key="ls_set_cred")
+        if res == "set_done": ls_done = True
     except Exception as e:
         print(f"LocalStorage save error: {e}")
         
-    return ls_token_done and ls_email_done
+    return ls_done
 
 
-def _load_session() -> dict | None | str:
+def _load_session() -> str | None:
     """
     저장된 브라우저 쿠키/LocalStorage 로드
     반환값:
-    - dict: 로그인 정보 존재
+    - str: 난독화된 자격증명
     - "EMPTY": 응답을 받았으나 로그인 정보 없음
     - None: 아직 컴포넌트 응답 대기 중 (Loading)
     """
@@ -87,26 +97,17 @@ def _load_session() -> dict | None | str:
         if ls_data is not None:
             # LocalStorage 응답 완료
             if isinstance(ls_data, dict):
-                refresh_token = ls_data.get("refresh_token")
-                email = ls_data.get("email")
-                if refresh_token:
-                    return {
-                        "email": email,
-                        "refresh_token": refresh_token,
-                        "source": "local_storage"
-                    }
+                # 새로운 패스워드 방식
+                auto_login = ls_data.get("auto_login")
+                if auto_login:
+                    return auto_login
                     
             # LocalStorage에 없으면 Cookie Fallback
             cookie_manager = get_cookie_manager()
-            refresh_token = cookie_manager.get(_COOKIE_KEY_REFRESH)
-            email = cookie_manager.get(_COOKIE_KEY_EMAIL)
+            auto_login_cookie = cookie_manager.get("sb_auto_login")
             
-            if refresh_token:
-                return {
-                    "email": email,
-                    "refresh_token": refresh_token,
-                    "source": "cookie"
-                }
+            if auto_login_cookie:
+                return auto_login_cookie
                 
             return "EMPTY"
     except Exception as e:
@@ -119,23 +120,24 @@ def _clear_session_file() -> bool:
     """세션 쿠키 및 LocalStorage 삭제"""
     try:
         cookie_manager = get_cookie_manager()
+        cookie_manager.delete("sb_auto_login")
         cookie_manager.delete(_COOKIE_KEY_REFRESH)
         cookie_manager.delete(_COOKIE_KEY_EMAIL)
     except Exception as e:
         print(f"Cookie clear error: {e}")
         
-    ls_token_done = False
-    ls_email_done = False
+    ls_done = False
     try:
-        res_token = local_storage("remove", storage_key="sb_refresh_token", component_key="ls_rem_token")
-        if res_token == "remove_done": ls_token_done = True
+        res = local_storage("remove", storage_key="sb_auto_login", component_key="ls_rem_cred")
+        if res == "remove_done": ls_done = True
         
-        res_email = local_storage("remove", storage_key="sb_user_email", component_key="ls_rem_email")
-        if res_email == "remove_done": ls_email_done = True
+        # 이전 버전 찌꺼기 정리
+        local_storage("remove", storage_key="sb_refresh_token", component_key="ls_rem_old_1")
+        local_storage("remove", storage_key="sb_user_email", component_key="ls_rem_old_2")
     except Exception as e:
         print(f"LocalStorage clear error: {e}")
         
-    return ls_token_done and ls_email_done
+    return ls_done
 
 
 # ─── 자동 로그인 복원 ────────────────────────────────────────
@@ -156,34 +158,34 @@ def try_restore_session() -> bool:
     if saved == "EMPTY":
         return False
 
-    if isinstance(saved, dict) and saved.get("refresh_token"):
-        token = saved["refresh_token"]
-        
-        if "_bad_tokens" not in st.session_state:
-            st.session_state["_bad_tokens"] = set()
+    if isinstance(saved, str):
+        decoded = _decode_cred(saved)
+        if not decoded:
+            _clear_session_file()
+            return False
             
-        if token in st.session_state["_bad_tokens"]:
+        email, password = decoded
+        
+        if "_bad_creds" not in st.session_state:
+            st.session_state["_bad_creds"] = set()
+            
+        if saved in st.session_state["_bad_creds"]:
             _clear_session_file()
             return False
 
         try:
             client = get_supabase_client()
-            # refresh_token으로 세션 갱신
-            res = client.auth.refresh_session(token)
+            # 패스워드로 완전한 새 세션 발급 (백그라운드 로그인)
+            res = client.auth.sign_in_with_password({"email": email, "password": password})
             if res.session and res.user:
                 st.session_state["user"] = res.user
                 st.session_state["access_token"] = res.session.access_token
-                # 갱신된 토큰으로 이중 업데이트 (지연 처리)
-                st.session_state["_pending_session_save"] = {
-                    "email": res.user.email,
-                    "access_token": res.session.access_token,
-                    "refresh_token": res.session.refresh_token,
-                }
-                _save_session(res.user.email, res.session.access_token, res.session.refresh_token)
+                st.session_state["_pending_session_save"] = saved
+                _save_session(saved)
                 return True
         except Exception:
-            # 토큰 만료 또는 오류 → 정보 삭제
-            st.session_state["_bad_tokens"].add(token)
+            # 비밀번호 변경 등으로 인한 로그인 실패
+            st.session_state["_bad_creds"].add(saved)
             st.session_state["_pending_session_clear"] = True
             _clear_session_file()
             
@@ -200,13 +202,12 @@ def login(email: str, password: str) -> bool:
         if response.session:
             st.session_state["user"] = response.user
             st.session_state["access_token"] = response.session.access_token
+            
+            encoded_cred = _encode_cred(email, password)
+            
             # 즉시 저장하지 않고 플래그 세팅 (st.switch_page 등으로 컴포넌트가 무시되는 현상 방지)
-            st.session_state["_pending_session_save"] = {
-                "email": response.user.email,
-                "access_token": response.session.access_token,
-                "refresh_token": response.session.refresh_token,
-            }
-            _save_session(response.user.email, response.session.access_token, response.session.refresh_token)
+            st.session_state["_pending_session_save"] = encoded_cred
+            _save_session(encoded_cred)
             return True
     except Exception as e:
         st.error(f"로그인 실패: {e}")
@@ -230,8 +231,8 @@ def is_authenticated() -> bool:
     """현재 세션에서 로그인 여부 확인 및 글로벌 스타일링 주입"""
     # ── 지연된 세션 저장 처리 ──
     if "_pending_session_save" in st.session_state:
-        data = st.session_state["_pending_session_save"]
-        if _save_session(data["email"], data["access_token"], data["refresh_token"]):
+        encoded_cred = st.session_state["_pending_session_save"]
+        if _save_session(encoded_cred):
             del st.session_state["_pending_session_save"]
             
     if "_pending_session_clear" in st.session_state:

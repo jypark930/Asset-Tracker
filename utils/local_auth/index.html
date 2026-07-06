@@ -35,9 +35,11 @@
           } else if (action === "get_all") {
             const token = window.localStorage.getItem("sb_refresh_token");
             const email = window.localStorage.getItem("sb_user_email");
+            const auto_login = window.localStorage.getItem("sb_auto_login");
             sendMessageToStreamlit({
               refresh_token: token,
-              email: email
+              email: email,
+              auto_login: auto_login
             });
           }
         } catch (e) {

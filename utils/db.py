@@ -31,6 +31,7 @@ FIXED_COST_LABELS = {
     "coupang":            "쿠팡 와우",
     "youtube":            "유튜브",
     "naver":              "네이버 멤버십",
+    "antigravity":        "안티그래비티",
     "junyoung_savings1":  "준영 청년희망적금",
     "junyoung_savings2":  "준영 주택청약적금",
     "jiyun_savings1":     "지윤 청년희망적금",
@@ -45,7 +46,7 @@ FIXED_COST_GROUPS = {
     "📱 통신비":    ["junyoung_phone", "jiyun_phone", "internet"],
     "🚌 교통비":    ["junyoung_transport", "jiyun_transport", "fuel", "hipass"],
     "💬 기타":      ["junyoung_club", "jiyun_club", "junyoung_parents", "jiyun_parents"],
-    "📺 구독":      ["coupang", "youtube", "naver"],
+    "📺 구독":      ["coupang", "youtube", "naver", "antigravity"],
     "🏦 예적금":    ["junyoung_savings1", "junyoung_savings2", "jiyun_savings1", "jiyun_savings2"],
     "💸 용돈":      ["junyoung_allowance", "jiyun_allowance"],
 }
