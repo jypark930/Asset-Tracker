@@ -87,8 +87,8 @@ def get_owner_and_type(raw_acc):
     elif raw_acc.startswith("준영"):
         owner = "준영"
         raw_acc = raw_acc.replace("준영", "").strip()
-    elif raw_acc == "업비트":
-        owner = "준영"
+    elif "업비트" in raw_acc:
+        owner = "지윤"
     else:
         owner = "준영"
         

@@ -147,7 +147,7 @@ with st.expander("🚀 [임시] 6월 데이터 일괄 업로드"):
             except: return 0
 
         def get_owner_and_type(raw_acc):
-            if raw_acc == "업비트":
+            if "업비트" in raw_acc:
                 return "지윤", "업비트"
             owner = "지윤" if raw_acc.startswith("지윤") else "준영"
             raw_acc = raw_acc.replace("지윤", "").replace("준영", "").strip()
@@ -934,9 +934,12 @@ def _render_stock_editor(owner: str, sel_acc: str):
 
 
 def render_stock_form(owner: str):
+    acc_options = STOCK_INPUT_ACCOUNTS.copy()
+    if owner == "준영" and "업비트" in acc_options:
+        acc_options.remove("업비트")
     sel_acc = st.selectbox(
         "계좌 선택",
-        STOCK_INPUT_ACCOUNTS,
+        acc_options,
         key=f"stock_acc_{owner}",
     )
     _render_stock_editor(owner, sel_acc)
