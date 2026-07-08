@@ -513,7 +513,7 @@ SKIP_STOCK_NAMES = {"예수금(원화)", "예수금(달러)", "예수금(현금)
 STOCK_INPUT_ACCOUNTS = ["총 예수금", "중개형ISA", "IRP", "KB", "TOSS", "업비트"]
 PRINCIPAL_ONLY_ACCOUNTS = ["총 예수금", "CMA", "청년도약"]  # 원금만 수정 가능한 계좌
 
-def render_detail_table(owner_key, prefix=""):
+def render_detail_table(owner_key, prefix="", show_stocks=True):
     owner_invs = [i for i in invests if i["owner"] == owner_key]
     if not owner_invs:
         st.info(f"{owner_key}님의 등록된 자산이 없습니다.")
@@ -535,7 +535,7 @@ def render_detail_table(owner_key, prefix=""):
     cash_invs = [i for i in owner_invs if i["account_type"] in INVESTMENT_ACCOUNTS["현금성 자산"]]
     non_cash_invs = [i for i in owner_invs if i["account_type"] not in INVESTMENT_ACCOUNTS["현금성 자산"]]
 
-    def _render_group(title, icon, invs, prefix=""):
+    def _render_group(title, icon, invs, prefix="", show_stocks=True):
         if not invs: return
         
         # 그룹 총액 계산
@@ -576,6 +576,21 @@ def render_detail_table(owner_key, prefix=""):
             pnl_sign = "+" if tot_pnl_amt > 0 else ""
             pnl_color = "#ef4444" if tot_pnl_amt > 0 else "#3b82f6" if tot_pnl_amt < 0 else "#64748b"
             
+            # show_stocks=False 이면 계좌 단위 카드만 표시하고 종목 생략
+            if not show_stocks:
+                st.markdown(f'''
+<div style="margin-bottom:8px;background:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.02);border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <span style="font-size:1rem;font-weight:700;color:#0f172a;">🏦 {acc_type}</span>
+    <span style="font-size:0.9rem;font-weight:600;color:#64748b;">원금: {int(round(tot_p)):,}원</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:1rem;font-weight:700;color:#1e293b;">평가액: {int(round(tot_a)):,}원</span>
+    <span style="font-size:0.9rem;font-weight:700;color:{pnl_color};letter-spacing:-0.5px;">{pnl_sign}{int(round(tot_pnl_amt)):,}원 ({pnl_sign}{tot_pnl_pct:.1f}%)</span>
+  </div>
+</div>''', unsafe_allow_html=True)
+                continue
+
             st.markdown("""<style>
             .fin-stock-row {
                 display: flex; justify-content: space-between; align-items: center;
@@ -744,17 +759,17 @@ def render_detail_table(owner_key, prefix=""):
 </div>
 ''', unsafe_allow_html=True)
 
-    _render_group("현금성 자산 원금", "💰", cash_invs, prefix)
-    _render_group("비현금성 자산 원금", "🏠", non_cash_invs, prefix)
+    _render_group("현금성 자산 원금", "💰", cash_invs, prefix, show_stocks=show_stocks)
+    _render_group("비현금성 자산 원금", "🏠", non_cash_invs, prefix, show_stocks=show_stocks)
 
 with tab_fam:
     _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
     draw_light_divider()
-    st.subheader("\U0001f4cb 계좌별 상세 현황 — 👨 준영")
-    render_detail_table("준영", prefix="fam_jy_")
+    st.subheader("\U0001f4cb 계좌별 현황 — 👨 준영")
+    render_detail_table("준영", prefix="fam_jy_", show_stocks=False)
     draw_light_divider()
-    st.subheader("\U0001f4cb 계좌별 상세 현황 — \U0001f469 지윤")
-    render_detail_table("지윤", prefix="fam_ji_")
+    st.subheader("\U0001f4cb 계좌별 현황 — \U0001f469 지윤")
+    render_detail_table("지윤", prefix="fam_ji_", show_stocks=False)
 with tab_jy:
     _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
     draw_light_divider()
