@@ -373,7 +373,7 @@ SKIP_STOCK_NAMES = {"예수금(원화)", "예수금(달러)", "예수금(현금)
 STOCK_INPUT_ACCOUNTS = ["총 예수금", "중개형ISA", "IRP", "KB", "TOSS", "업비트"]
 PRINCIPAL_ONLY_ACCOUNTS = ["총 예수금", "CMA", "청년도약"]  # 원금만 수정 가능한 계좌
 
-def render_detail_table(owner_key, prefix="", show_stocks=True):
+def render_detail_table(owner_key, prefix="", show_stocks=False):
     owner_invs = [i for i in invests if i["owner"] == owner_key]
     if not owner_invs:
         st.info(f"{owner_key}님의 등록된 자산이 없습니다.")
