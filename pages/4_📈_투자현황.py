@@ -547,9 +547,6 @@ def _render_stock_editor(owner: str, sel_acc: str):
             st.session_state[data_key] = [
                 {
                     "종목명": s.get("stock_name", ""),
-                    "수량": float(s.get("quantity", 0) or 0),
-                    "평단가": int(s.get("average_price", 0) or 0),
-                    "현재가": int(s.get("current_price", 0) or 0),
                     "원금": int(s.get("principal", 0) or 0),
                     "평가수익": int(s.get("valuation", 0) or 0) - int(s.get("principal", 0) or 0),
                     "평가액": int(s.get("valuation", 0) or 0),
@@ -558,7 +555,7 @@ def _render_stock_editor(owner: str, sel_acc: str):
             ]
         else:
             st.session_state[data_key] = [
-                {"종목명": "", "수량": 0.0, "평단가": 0, "현재가": 0, "원금": 0, "평가수익": 0, "평가액": 0}
+                {"종목명": "", "원금": 0, "평가수익": 0, "평가액": 0}
             ]
         if editor_key in st.session_state:
             del st.session_state[editor_key]
@@ -570,55 +567,15 @@ def _render_stock_editor(owner: str, sel_acc: str):
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "종목명":  st.column_config.TextColumn("종목명 (이름/코드)", width="medium"),
-            "수량":    st.column_config.NumberColumn("수량", min_value=0, step=0.1, format="%.2f"),
-            "평단가":  st.column_config.NumberColumn("평단가(₩)", min_value=0, format="%d"),
-            "현재가":  st.column_config.NumberColumn("현재가(₩)", min_value=0, format="%d"),
+            "종목명":  st.column_config.TextColumn("종목명 (계좌명 등)", width="medium"),
             "원금":    st.column_config.NumberColumn("원금(₩)", format="%d"),
             "평가수익": st.column_config.NumberColumn("평가수익(₩)", format="%d"),
-            "평가액":  st.column_config.NumberColumn("평가액 (자동)", disabled=True, format="%d"),
+            "평가액":  st.column_config.NumberColumn("평가액 (자동 계산)", disabled=True, format="%d"),
         },
         disabled=["평가액"] if not is_closed else True,
     )
 
-    col_a, col_b = st.columns(2)
-
-    is_current_month = (year == datetime.now().year and month == datetime.now().month)
-    fetch_disabled = is_closed or not is_current_month
-    fetch_help = "현재가 일괄 조회는 '당월' 데이터에서만 가능합니다." if not is_current_month else None
-
-    if col_a.button("🔄 현재가 일괄 조회", key=f"fetch_{owner}_{sel_acc}",
-                    use_container_width=True, disabled=fetch_disabled, help=fetch_help):
-        rows = edited_df.to_dict("records")
-        prog = st.progress(0, text="조회 중...")
-        names = [str(r.get("종목명", "")).strip() for r in rows]
-        valid = [(i, n) for i, n in enumerate(names) if n]
-
-        for step, (i, name) in enumerate(valid):
-            prog.progress((step + 1) / max(len(valid), 1), text=f"🔍 {name} 조회 중...")
-            row = rows[i].copy()
-            info = get_current_price(name)
-            if info:
-                qty   = _sf(row.get("수량"))
-                avg_p = _si(row.get("평단가"))
-                price = info["price"]
-                row["종목명"] = info["name"]
-                row["현재가"] = price
-                row["원금"]   = int(avg_p * qty)
-                row["평가액"] = int(price * qty)
-                row["평가수익"] = row["평가액"] - row["원금"]
-            else:
-                st.warning(f"⚠️ '{name}' 현재가 조회 실패 (종목명 확인 필요)")
-            rows[i] = row
-
-        prog.empty()
-        st.session_state[data_key] = rows
-        if editor_key in st.session_state:
-            del st.session_state[editor_key]
-        st.rerun()
-
-    if col_b.button("💾 저장", key=f"save_stocks_{owner}_{sel_acc}",
-                    use_container_width=True, disabled=is_closed):
+    if st.button("💾 저장", key=f"save_stocks_{owner}_{sel_acc}", use_container_width=True, disabled=is_closed):
         rows = edited_df.to_dict("records")
         stocks_to_save = []
         tot_p, tot_a = 0, 0
@@ -627,30 +584,20 @@ def _render_stock_editor(owner: str, sel_acc: str):
             name = str(row.get("종목명", "") or "").strip()
             if not name or name == "nan":
                 continue
-            qty   = _sf(row.get("수량"))
-            avg_p = _si(row.get("평단가"))
-            cur_p = _si(row.get("현재가"))
+            
             prin  = _si(row.get("원금"))
             pnl   = _si(row.get("평가수익"))
+            val   = prin + pnl
             
-            # 원금이 직접 입력되지 않았으면 수량*평단가
-            if prin == 0 and qty > 0 and avg_p > 0:
-                prin = int(qty * avg_p)
-                
-            # 평가액 계산 (수량*현재가 우선, 그다음 원금+평가수익)
-            if cur_p > 0 and qty > 0:
-                val = int(qty * cur_p)
-            elif pnl != 0:
-                val = prin + pnl
-            else:
-                val = prin
-                
             tot_p += prin
             tot_a += val
             stocks_to_save.append({
-                "stock_name": name, "quantity": qty,
-                "average_price": avg_p, "current_price": cur_p,
-                "principal": prin, "valuation": val,
+                "stock_name": name,
+                "quantity": 0,
+                "average_price": 0,
+                "current_price": 0,
+                "principal": prin,
+                "valuation": val,
             })
 
         if stocks_to_save:
