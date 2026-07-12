@@ -336,7 +336,7 @@ grid_html = f"""
 </div>
 """
 st.markdown(grid_html, unsafe_allow_html=True)
-st.markdown("<p style='font-size:0.8rem;color:#94a3b8;margin-top:-8px;margin-bottom:4px;'>* 자산은 원금 기준임</p>", unsafe_allow_html=True)
+
 draw_light_divider()
 
 # ── 자산 구성 요약 + 계좌별 상세 (탭 통합) ────────────────────
