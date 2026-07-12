@@ -257,7 +257,8 @@ draw_neon_divider()
 
 
 # ── 🎯 현금성 자산 목표 진척도 ──────────────────────────────────
-target_amount = goal_data.get("target_amount", 0) if goal_data else 0
+target_amount = goal_data.get("target_amount") if goal_data else 0
+target_amount = int(target_amount) if target_amount else 0
 
 if target_amount > 0:
     progress_pct = (cash_asset / target_amount) * 100
