@@ -530,7 +530,7 @@ def _sf(v, d=0.0) -> float:
 def _render_stock_editor(owner: str, sel_acc: str):
     from utils.stock_price import get_current_price
 
-    st.caption("평단가와 수량을 입력한 뒤 **🔄 현재가 일괄 조회** 버튼을 누르세요. 평가액과 손익이 자동으로 계산됩니다.")
+    st.caption("원금과 평가수익을 입력하고 저장해 주세요. 불필요한 내역을 삭제하려면 표 왼쪽 끝을 클릭해 행을 선택한 뒤, 키보드 Delete 키를 누르시거나 우측 상단의 휴지통 아이콘을 누르시면 됩니다.")
 
     inv = next((i for i in invests if i["owner"] == owner and i["account_type"] == sel_acc), None)
     existing = [
