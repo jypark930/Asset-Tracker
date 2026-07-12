@@ -141,6 +141,7 @@ from utils.db import CATEGORIES, get_monthly_income, get_fixed_costs, get_utilit
 _cat_colors = ["#ff6b00", "#1b263b", "#3b82f6", "#94a3b8", "#f97316", "#475569"]
 _txns = get_transactions(year, month)
 
+_cat_sum = {}
 if _txns:
     _cat_sum = {c: 0 for c in CATEGORIES}
     for _t in _txns:
@@ -200,26 +201,27 @@ if _txns:
     draw_neon_divider()
 
     # ── 변동지출 구성 도넛 차트 ──────────────────────────────
-    _cat_for_pie = {k: v for k, v in _cat_sum.items() if v > 0}
-    if _cat_for_pie:
-        _fig_pie = px.pie(
-            values=list(_cat_for_pie.values()),
-            names=list(_cat_for_pie.keys()),
-            color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
-            color_discrete_map={"준영점심": "#10b981"},
-            hole=0.5,
-        )
-        _fig_pie.update_traces(
-            textposition="inside",
-            textinfo="percent+label",
-            marker=dict(line=dict(color='#ffffff', width=4))
-        )
-        _fig_pie.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
-            height=320, margin=dict(l=0, r=0, t=10, b=0),
-            legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
-        )
-        st.plotly_chart(_fig_pie, use_container_width=True)
+    if _cat_sum:
+        _cat_for_pie = {k: v for k, v in _cat_sum.items() if v > 0}
+        if _cat_for_pie:
+            _fig_pie = px.pie(
+                values=list(_cat_for_pie.values()),
+                names=list(_cat_for_pie.keys()),
+                color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
+                color_discrete_map={"준영점심": "#10b981"},
+                hole=0.5,
+            )
+            _fig_pie.update_traces(
+                textposition="inside",
+                textinfo="percent+label",
+                marker=dict(line=dict(color='#ffffff', width=4))
+            )
+            _fig_pie.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
+                height=320, margin=dict(l=0, r=0, t=10, b=0),
+                legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
+            )
+            st.plotly_chart(_fig_pie, use_container_width=True)
 
 draw_neon_divider()
 
