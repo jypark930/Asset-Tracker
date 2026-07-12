@@ -237,22 +237,22 @@ def get_monthly_summary(year: int, month: int) -> dict:
     invests  = get_investments(year, month)
     other_incomes = get_other_incomes(year, month)
 
-    total_income = (income.get("junyoung_salary", 0) + income.get("junyoung_bonus", 0) +
-                    income.get("jiyun_salary", 0)    + income.get("jiyun_incentive", 0) +
-                    sum(item.get("amount", 0) for item in other_incomes))
+    total_income = ((income.get("junyoung_salary") or 0) + (income.get("junyoung_bonus") or 0) +
+                    (income.get("jiyun_salary") or 0)    + (income.get("jiyun_incentive") or 0) +
+                    sum((item.get("amount") or 0) for item in other_incomes))
 
-    total_variable = sum(t.get("amount", 0) for t in txns)
-
+    total_variable = sum((t.get("amount") or 0) for t in txns)
+    
     category_totals = {}
     for t in txns:
         cat = t.get("category", "기타")
-        category_totals[cat] = category_totals.get(cat, 0) + t.get("amount", 0)
+        category_totals[cat] = category_totals.get(cat, 0) + (t.get("amount") or 0)
 
-    total_fixed = sum(fixed.get(f, 0) for f in FIXED_COST_LABELS)
-    total_utility = utility.get("electricity", 0) + utility.get("water", 0) + utility.get("gas", 0)
+    total_fixed = sum((fixed.get(f) or 0) for f in FIXED_COST_LABELS)
+    total_utility = (utility.get("electricity") or 0) + (utility.get("water") or 0) + (utility.get("gas") or 0)
     total_expense = total_fixed + total_utility + total_variable
-    total_investment = sum(inv.get("amount", 0) for inv in invests)
-    total_principal = sum(inv.get("principal", 0) for inv in invests)
+    total_investment = sum((inv.get("amount") or 0) for inv in invests)
+    total_principal = sum((inv.get("principal") or 0) for inv in invests)
 
     return {
         "total_income":    total_income,

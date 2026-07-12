@@ -142,8 +142,8 @@ try:
     net  = s["net"]
     cat  = s["category_totals"]
     tinv = s["total_investment"]
-    t_asset = s.get("total_principal", 0) 
-    cash_asset = sum(inv.get("principal", 0) for inv in s.get("investments", []) if inv.get("account_type") in INVESTMENT_ACCOUNTS.get("현금성 자산", []))
+    t_asset = s.get("total_principal") or 0 
+    cash_asset = sum((inv.get("principal") or 0) for inv in s.get("investments", []) if inv.get("account_type") in INVESTMENT_ACCOUNTS.get("현금성 자산", []))
     
     # ── KPI 카드 (모바일 최적화 Grid) ──────────────────────────
     delta_str = "▲ 흑자" if net >= 0 else "▼ 적자"
