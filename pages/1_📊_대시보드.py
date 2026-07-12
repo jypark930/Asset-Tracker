@@ -9,7 +9,7 @@ from datetime import datetime
 st.set_page_config(page_title="대시보드", page_icon="📊", layout="wide")
 
 from utils.auth import is_authenticated, get_current_user, try_restore_session, EMAIL_TO_NAME
-from utils.db import get_monthly_summary, get_transactions, get_monthly_goal, INVESTMENT_ACCOUNTS
+from utils.db import get_monthly_summary, get_transactions, get_monthly_goal, INVESTMENT_ACCOUNTS, get_yearly_cash_assets
 
 if not is_authenticated():
     if not try_restore_session():
@@ -59,6 +59,36 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+import plotly.graph_objects as go
+
+# ── 현금성 자산 추이 (월별 선 그래프) ──────────────────────────
+if "global_year" not in st.session_state:
+    st.session_state.global_year = now.year
+
+yearly_cash = get_yearly_cash_assets(st.session_state.global_year)
+months_labels = [f"{m}월" for m in range(1, 13)]
+targets = [yearly_cash[m]["target"] for m in range(1, 13)]
+principals = [yearly_cash[m]["principal"] for m in range(1, 13)]
+evaluations = [yearly_cash[m]["evaluation"] for m in range(1, 13)]
+
+fig_line = go.Figure()
+fig_line.add_trace(go.Scatter(x=months_labels, y=targets, mode='lines+markers', name='계획', line=dict(color='#cbd5e1', width=2, dash='dash'), marker=dict(color='#cbd5e1')))
+fig_line.add_trace(go.Scatter(x=months_labels, y=principals, mode='lines+markers', name='원금', line=dict(color='#3b82f6', width=3), marker=dict(size=6)))
+fig_line.add_trace(go.Scatter(x=months_labels, y=evaluations, mode='lines+markers', name='평가액', line=dict(color='#10b981', width=3), marker=dict(size=6)))
+
+fig_line.update_layout(
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=11)),
+    yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont=dict(color="#64748b", size=11), tickformat=",.0f"),
+    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(size=12, color="#475569")),
+    margin=dict(l=10, r=10, t=10, b=10),
+    height=280,
+    hovermode="x unified"
+)
+st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
+
+draw_neon_divider()
 
 # ── 월 선택 (상태 관리 및 좌우 이동 버튼) ─────────────────
 if "global_year" not in st.session_state:
