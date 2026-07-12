@@ -114,7 +114,7 @@ if is_past_month:
     is_admin = user and user.email == "jypark930@naver.com"
     close_disabled = is_closed and not is_admin
     new_status = st.radio("마감 여부", ["Y", "N"], index=0 if is_closed else 1,
-                          horizontal=True, disabled=close_disabled, key="close_radio")
+                          horizontal=True, disabled=close_disabled, key=f"close_radio_{year}_{month}")
     if (new_status == "Y") != is_closed:
         if new_status == "Y":
             if "investments_closed" not in confirmed_fields:
