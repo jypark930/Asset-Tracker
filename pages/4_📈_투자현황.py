@@ -475,10 +475,10 @@ with tab_fam:
     _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
     draw_light_divider()
     st.subheader("\U0001f4cb 계좌별 현황 — 👨 준영")
-    render_detail_table("준영", prefix="fam_jy_", show_stocks=False)
+    render_detail_table("준영", prefix="fam_jy_")
     draw_light_divider()
     st.subheader("\U0001f4cb 계좌별 현황 — \U0001f469 지윤")
-    render_detail_table("지윤", prefix="fam_ji_", show_stocks=False)
+    render_detail_table("지윤", prefix="fam_ji_")
 with tab_jy:
     _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
     draw_light_divider()
