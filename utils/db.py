@@ -406,3 +406,67 @@ def get_yearly_cash_assets(year: int) -> dict:
         print(f"Error fetching investments in yearly_cash: {e}")
 
     return yearly_data
+
+
+def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
+    client = get_supabase_client()
+    
+    # 1. 모든 목표 데이터 조회
+    goals_dict = {}
+    try:
+        goals_res = client.table("monthly_goals").select("*").execute()
+        for g in (goals_res.data or []):
+            y, m = g["year"], g["month"]
+            if y > start_year or (y == start_year and m >= start_month):
+                goals_dict[(y, m)] = g.get("target_amount") or 0
+    except Exception as e:
+        print(f"Error fetching all monthly_goals: {e}")
+
+    # 2. 모든 현금성 자산 조회
+    cash_accounts = INVESTMENT_ACCOUNTS.get("현금성 자산", [])
+    inv_dict = {}
+    try:
+        inv_res = client.table("investments").select("*").execute()
+        for inv in (inv_res.data or []):
+            if inv.get("account_type") in cash_accounts:
+                y, m = inv.get("year"), inv.get("month")
+                if y > start_year or (y == start_year and m >= start_month):
+                    if (y, m) not in inv_dict:
+                        inv_dict[(y, m)] = {"principal": 0, "evaluation": 0}
+                    inv_dict[(y, m)]["principal"] += (inv.get("principal") or 0)
+                    inv_dict[(y, m)]["evaluation"] += (inv.get("amount") or 0)
+    except Exception as e:
+        print(f"Error fetching all investments: {e}")
+
+    # 3. 데이터 결합
+    end_year, end_month = 2028, 12
+    if goals_dict:
+        max_y = max(y for y, m in goals_dict.keys())
+        max_m = max(m for y, m in goals_dict.keys() if y == max_y)
+        if max_y > end_year or (max_y == end_year and max_m > end_month):
+            end_year, end_month = max_y, max_m
+            
+    now = datetime.now()
+    if now.year > end_year or (now.year == end_year and now.month > end_month):
+        end_year, end_month = now.year, now.month
+
+    results = []
+    y, m = start_year, start_month
+    while True:
+        key = (y, m)
+        results.append({
+            "year": y,
+            "month": m,
+            "label": f"{str(y)[2:]}년 {m}월",
+            "target": goals_dict.get(key, 0),
+            "principal": inv_dict.get(key, {}).get("principal", 0),
+            "evaluation": inv_dict.get(key, {}).get("evaluation", 0)
+        })
+        if y == end_year and m == end_month:
+            break
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+            
+    return results

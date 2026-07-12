@@ -9,7 +9,7 @@ from datetime import datetime
 st.set_page_config(page_title="대시보드", page_icon="📊", layout="wide")
 
 from utils.auth import is_authenticated, get_current_user, try_restore_session, EMAIL_TO_NAME
-from utils.db import get_monthly_summary, get_transactions, get_monthly_goal, INVESTMENT_ACCOUNTS, get_yearly_cash_assets
+from utils.db import get_monthly_summary, get_transactions, get_monthly_goal, INVESTMENT_ACCOUNTS, get_yearly_cash_assets, get_all_cash_assets
 
 if not is_authenticated():
     if not try_restore_session():
@@ -65,11 +65,11 @@ import plotly.graph_objects as go
 if "global_year" not in st.session_state:
     st.session_state.global_year = now.year
 
-yearly_cash = get_yearly_cash_assets(st.session_state.global_year)
-months_labels = [f"{m}월" for m in range(1, 13)]
-targets = [yearly_cash[m]["target"] for m in range(1, 13)]
-principals = [yearly_cash[m]["principal"] for m in range(1, 13)]
-evaluations = [yearly_cash[m]["evaluation"] for m in range(1, 13)]
+all_cash_assets = get_all_cash_assets(start_year=2026, start_month=5)
+months_labels = [item["label"] for item in all_cash_assets]
+targets = [item["target"] for item in all_cash_assets]
+principals = [item["principal"] for item in all_cash_assets]
+evaluations = [item["evaluation"] for item in all_cash_assets]
 
 fig_line = go.Figure()
 fig_line.add_trace(go.Scatter(x=months_labels, y=targets, mode='lines+markers', name='계획', line=dict(color='#cbd5e1', width=2, dash='dash'), marker=dict(color='#cbd5e1')))
