@@ -174,18 +174,21 @@ for s in all_stocks:
         stock_map[(acc, name)]["ji_a"] += valuation
         stock_map[(acc, name)]["ji_qty"] += float(qty)
 
-# 총 예수금의 경우 하위 종목(현금, 달러)의 합계로 전체 계좌 데이터를 덮어씌움
+# 종목이 등록된 계좌의 경우, 하위 종목들의 합계로 전체 계좌 데이터를 덮어씌움
 for owner in ["준영", "지윤"]:
     p_key, a_key = ("jy_p", "jy_a") if owner == "준영" else ("ji_p", "ji_a")
-    tot_p, tot_a = 0, 0
-    has_stocks = False
+    qty_key = "jy_qty" if owner == "준영" else "ji_qty"
+    
+    acc_sums = {}
     for (acc, name), d in stock_map.items():
-        if acc == "총 예수금":
-            has_stocks = True
-            tot_p += d[p_key]
-            tot_a += d[a_key]
-    if has_stocks:
-        inv_map[(owner, "총 예수금")] = {"principal": tot_p, "amount": tot_a}
+        if d[qty_key] > 0 or d[p_key] > 0 or d[a_key] > 0:
+            if acc not in acc_sums:
+                acc_sums[acc] = {"p": 0, "a": 0}
+            acc_sums[acc]["p"] += d[p_key]
+            acc_sums[acc]["a"] += d[a_key]
+            
+    for acc, sums in acc_sums.items():
+        inv_map[(owner, acc)] = {"principal": sums["p"], "amount": sums["a"]}
 
 
 def calc_pnl(principal, amount):
