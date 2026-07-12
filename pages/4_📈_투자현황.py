@@ -71,27 +71,27 @@ def draw_light_divider():
     st.markdown('<hr style="height:1px;border:none;background:#e2e8f0;margin:16px 0;">', unsafe_allow_html=True)
 
 # ── 월 선택 (◄ ► 네비게이션) ────────────────────────
-if "inv_year" not in st.session_state:
-    st.session_state.inv_year = now.year
-if "inv_month" not in st.session_state:
-    st.session_state.inv_month = now.month
+if "global_year" not in st.session_state:
+    st.session_state.global_year = now.year
+if "global_month" not in st.session_state:
+    st.session_state.global_month = now.month
 
 def inv_prev_month():
-    if st.session_state.inv_month == 1:
-        st.session_state.inv_month = 12
-        st.session_state.inv_year -= 1
+    if st.session_state.global_month == 1:
+        st.session_state.global_month = 12
+        st.session_state.global_year -= 1
     else:
-        st.session_state.inv_month -= 1
+        st.session_state.global_month -= 1
 
 def inv_next_month():
-    if st.session_state.inv_month == 12:
-        st.session_state.inv_month = 1
-        st.session_state.inv_year += 1
+    if st.session_state.global_month == 12:
+        st.session_state.global_month = 1
+        st.session_state.global_year += 1
     else:
-        st.session_state.inv_month += 1
+        st.session_state.global_month += 1
 
-year  = st.session_state.inv_year
-month = st.session_state.inv_month
+year  = st.session_state.global_year
+month = st.session_state.global_month
 
 nav_container = st.container()
 with nav_container:

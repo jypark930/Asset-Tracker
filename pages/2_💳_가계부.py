@@ -38,27 +38,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── 월 선택 (상태 관리 및 좌우 이동 버튼) ─────────────────────────
-if "dash_year" not in st.session_state:
-    st.session_state.dash_year = now.year
-if "dash_month" not in st.session_state:
-    st.session_state.dash_month = now.month
+if "global_year" not in st.session_state:
+    st.session_state.global_year = now.year
+if "global_month" not in st.session_state:
+    st.session_state.global_month = now.month
 
 def prev_month():
-    if st.session_state.dash_month == 1:
-        st.session_state.dash_month = 12
-        st.session_state.dash_year -= 1
+    if st.session_state.global_month == 1:
+        st.session_state.global_month = 12
+        st.session_state.global_year -= 1
     else:
-        st.session_state.dash_month -= 1
+        st.session_state.global_month -= 1
 
 def next_month():
-    if st.session_state.dash_month == 12:
-        st.session_state.dash_month = 1
-        st.session_state.dash_year += 1
+    if st.session_state.global_month == 12:
+        st.session_state.global_month = 1
+        st.session_state.global_year += 1
     else:
-        st.session_state.dash_month += 1
+        st.session_state.global_month += 1
 
-year = st.session_state.dash_year
-month = st.session_state.dash_month
+year = st.session_state.global_year
+month = st.session_state.global_month
 
 nav_container = st.container()
 with nav_container:
