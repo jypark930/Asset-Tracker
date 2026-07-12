@@ -298,16 +298,43 @@ ji_pnl_sign = "+" if ji_pnl_amt >= 0 else ""
 ji_delta = f"{ji_pnl_sign}{int(round(ji_pnl_amt)):,}원 ({total_data['ji_pnl']:.1f}%)"
 ji_color = "#10b981" if ji_pnl_amt >= 0 else "#ef4444"
 
-grid_html = f"""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 8px;">
-<div>{_get_card_html("총 자산 평가액", f"₩{int(round(total_data['tot_a'])):,}", delta_text, "#1b263b", delta_color)}</div>
-<div>{_get_card_html("👨 준영 자산", f"₩{int(round(total_data['jy_a'])):,}", jy_delta, "#3b82f6", jy_color)}</div>
-<div>{_get_card_html("👩 지윤 자산", f"₩{int(round(total_data['ji_a'])):,}", ji_delta, "#f472b6", ji_color)}</div>
+cash_tot_pnl_amt = cash_data["tot_a"] - cash_data["tot_p"]
+cash_tot_pnl_sign = "+" if cash_tot_pnl_amt >= 0 else ""
+cash_delta_text = f"{cash_tot_pnl_sign}{int(round(cash_tot_pnl_amt)):,}원 ({cash_data['tot_pnl']:.1f}%)" if cash_data["tot_p"] > 0 else ""
+cash_delta_color = "#10b981" if cash_tot_pnl_amt >= 0 else "#ef4444"
+
+cash_jy_pnl_amt = cash_data["jy_a"] - cash_data["jy_p"]
+cash_jy_pnl_sign = "+" if cash_jy_pnl_amt >= 0 else ""
+cash_jy_delta = f"{cash_jy_pnl_sign}{int(round(cash_jy_pnl_amt)):,}원 ({cash_data['jy_pnl']:.1f}%)" if cash_data["jy_p"] > 0 else ""
+cash_jy_color = "#10b981" if cash_jy_pnl_amt >= 0 else "#ef4444"
+
+cash_ji_pnl_amt = cash_data["ji_a"] - cash_data["ji_p"]
+cash_ji_pnl_sign = "+" if cash_ji_pnl_amt >= 0 else ""
+cash_ji_delta = f"{cash_ji_pnl_sign}{int(round(cash_ji_pnl_amt)):,}원 ({cash_data['ji_pnl']:.1f}%)" if cash_data["ji_p"] > 0 else ""
+cash_ji_color = "#10b981" if cash_ji_pnl_amt >= 0 else "#ef4444"
+
+grid_html = f"""
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 8px;">
+<div>{_get_card_html("전체 자산 평가액", f"₩{int(round(total_data['tot_a'])):,}", delta_text, "#1b263b", delta_color)}</div>
+<div>{_get_card_html("준영 자산 평가액", f"₩{int(round(total_data['jy_a'])):,}", jy_delta, "#3b82f6", jy_color)}</div>
+<div>{_get_card_html("지윤 자산 평가액", f"₩{int(round(total_data['ji_a'])):,}", ji_delta, "#f472b6", ji_color)}</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 12px;">
+<div>{_get_card_html("전체 자산 원금", f"₩{int(round(total_data['tot_p'])):,}", "", "#1b263b", "")}</div>
+<div>{_get_card_html("준영 자산 원금", f"₩{int(round(total_data['jy_p'])):,}", "", "#3b82f6", "")}</div>
+<div>{_get_card_html("지윤 자산 원금", f"₩{int(round(total_data['ji_p'])):,}", "", "#f472b6", "")}</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 8px;">
+<div>{_get_card_html("전체 현금성 자산 평가액", f"₩{int(round(cash_data['tot_a'])):,}", cash_delta_text, "#1b263b", cash_delta_color)}</div>
+<div>{_get_card_html("준영 현금성 자산 평가액", f"₩{int(round(cash_data['jy_a'])):,}", cash_jy_delta, "#3b82f6", cash_jy_color)}</div>
+<div>{_get_card_html("지윤 현금성 자산 평가액", f"₩{int(round(cash_data['ji_a'])):,}", cash_ji_delta, "#f472b6", cash_ji_color)}</div>
 </div>
 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 20px;">
-<div>{_get_card_html("총 현금성 자산 원금", f"₩{int(round(total_data['tot_p'])):,}", "", "#1b263b", "")}</div>
-<div>{_get_card_html("👨 준영 원금", f"₩{int(round(total_data['jy_p'])):,}", "", "#3b82f6", "")}</div>
-<div>{_get_card_html("👩 지윤 원금", f"₩{int(round(total_data['ji_p'])):,}", "", "#f472b6", "")}</div>
-</div>"""
+<div>{_get_card_html("전체 현금성 자산 원금", f"₩{int(round(cash_data['tot_p'])):,}", "", "#1b263b", "")}</div>
+<div>{_get_card_html("준영 현금성 자산 원금", f"₩{int(round(cash_data['jy_p'])):,}", "", "#3b82f6", "")}</div>
+<div>{_get_card_html("지윤 현금성 자산 원금", f"₩{int(round(cash_data['ji_p'])):,}", "", "#f472b6", "")}</div>
+</div>
+"""
 st.markdown(grid_html, unsafe_allow_html=True)
 st.markdown("<p style='font-size:0.8rem;color:#94a3b8;margin-top:-8px;margin-bottom:4px;'>* 자산은 원금 기준임</p>", unsafe_allow_html=True)
 draw_light_divider()
