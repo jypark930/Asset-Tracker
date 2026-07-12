@@ -551,13 +551,14 @@ def _render_stock_editor(owner: str, sel_acc: str):
                     "평단가": int(s.get("average_price", 0) or 0),
                     "현재가": int(s.get("current_price", 0) or 0),
                     "원금": int(s.get("principal", 0) or 0),
+                    "평가수익": int(s.get("valuation", 0) or 0) - int(s.get("principal", 0) or 0),
                     "평가액": int(s.get("valuation", 0) or 0),
                 }
                 for s in existing
             ]
         else:
             st.session_state[data_key] = [
-                {"종목명": "", "수량": 0.0, "평단가": 0, "현재가": 0, "원금": 0, "평가액": 0}
+                {"종목명": "", "수량": 0.0, "평단가": 0, "현재가": 0, "원금": 0, "평가수익": 0, "평가액": 0}
             ]
         if editor_key in st.session_state:
             del st.session_state[editor_key]
@@ -569,14 +570,15 @@ def _render_stock_editor(owner: str, sel_acc: str):
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "종목명":  st.column_config.TextColumn("종목명 (이름 or 6자리 코드)", width="medium"),
+            "종목명":  st.column_config.TextColumn("종목명 (이름/코드)", width="medium"),
             "수량":    st.column_config.NumberColumn("수량", min_value=0, step=0.1, format="%.2f"),
-            "평단가":  st.column_config.NumberColumn("평단가 (₩)", min_value=0, format="%d"),
-            "현재가":  st.column_config.NumberColumn("현재가 (자동)", disabled=True, format="%d"),
-            "원금":    st.column_config.NumberColumn("원금 (자동)", disabled=True, format="%d"),
+            "평단가":  st.column_config.NumberColumn("평단가(₩)", min_value=0, format="%d"),
+            "현재가":  st.column_config.NumberColumn("현재가(₩)", min_value=0, format="%d"),
+            "원금":    st.column_config.NumberColumn("원금(₩)", format="%d"),
+            "평가수익": st.column_config.NumberColumn("평가수익(₩)", format="%d"),
             "평가액":  st.column_config.NumberColumn("평가액 (자동)", disabled=True, format="%d"),
         },
-        disabled=["현재가", "원금", "평가액"] if not is_closed else True,
+        disabled=["평가액"] if not is_closed else True,
     )
 
     col_a, col_b = st.columns(2)
@@ -604,6 +606,7 @@ def _render_stock_editor(owner: str, sel_acc: str):
                 row["현재가"] = price
                 row["원금"]   = int(avg_p * qty)
                 row["평가액"] = int(price * qty)
+                row["평가수익"] = row["평가액"] - row["원금"]
             else:
                 st.warning(f"⚠️ '{name}' 현재가 조회 실패 (종목명 확인 필요)")
             rows[i] = row
@@ -627,8 +630,21 @@ def _render_stock_editor(owner: str, sel_acc: str):
             qty   = _sf(row.get("수량"))
             avg_p = _si(row.get("평단가"))
             cur_p = _si(row.get("현재가"))
-            prin  = _si(row.get("원금")) or int(avg_p * qty)
-            val   = _si(row.get("평가액")) or int(cur_p * qty) or int(avg_p * qty)
+            prin  = _si(row.get("원금"))
+            pnl   = _si(row.get("평가수익"))
+            
+            # 원금이 직접 입력되지 않았으면 수량*평단가
+            if prin == 0 and qty > 0 and avg_p > 0:
+                prin = int(qty * avg_p)
+                
+            # 평가액 계산 (수량*현재가 우선, 그다음 원금+평가수익)
+            if cur_p > 0 and qty > 0:
+                val = int(qty * cur_p)
+            elif pnl != 0:
+                val = prin + pnl
+            else:
+                val = prin
+                
             tot_p += prin
             tot_a += val
             stocks_to_save.append({
