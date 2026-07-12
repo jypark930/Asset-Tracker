@@ -380,11 +380,11 @@ def get_yearly_cash_assets(year: int) -> dict:
         client = get_supabase_client()
         # 1. 월별 목표 데이터 조회
         goals_res = client.table("monthly_goals").select("*").eq("year", year).execute()
-        goals = {g["month"]: g.get("cash_target_amount", 0) for g in (goals_res.data or [])}
+        goals = {g["month"]: g.get("target_amount", 0) for g in (goals_res.data or [])}
         
         # 2. 현금성 자산 데이터 조회
         cash_accounts = INVESTMENT_ACCOUNTS.get("현금성 자산", [])
-        inv_res = client.table("investments").select("month, principal, amount, account_type").eq("year", year).execute()
+        inv_res = client.table("investments").select("*").eq("year", year).execute()
         
         yearly_data = {}
         for m in range(1, 13):
@@ -395,8 +395,8 @@ def get_yearly_cash_assets(year: int) -> dict:
                 if inv.get("account_type") in cash_accounts:
                     m = inv.get("month")
                     if m in yearly_data:
-                        yearly_data[m]["principal"] += inv.get("principal", 0)
-                        yearly_data[m]["evaluation"] += inv.get("amount", 0)
+                        yearly_data[m]["principal"] += (inv.get("principal") or 0)
+                        yearly_data[m]["evaluation"] += (inv.get("amount") or 0)
                         
         return yearly_data
     except Exception as e:
