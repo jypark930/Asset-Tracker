@@ -376,20 +376,25 @@ def upsert_monthly_goal(year: int, month: int, target_amount: int, cash_target_a
         st.error(f"목표 저장 실패: {e}")
         return False
 def get_yearly_cash_assets(year: int) -> dict:
+    client = get_supabase_client()
+    
+    # 1. 월별 목표 데이터 조회 (실패해도 계속 진행)
+    goals = {}
     try:
-        client = get_supabase_client()
-        # 1. 월별 목표 데이터 조회
         goals_res = client.table("monthly_goals").select("*").eq("year", year).execute()
         goals = {g["month"]: g.get("target_amount", 0) for g in (goals_res.data or [])}
+    except Exception as e:
+        print(f"Error fetching monthly_goals (ignored): {e}")
+
+    # 2. 현금성 자산 데이터 조회
+    cash_accounts = INVESTMENT_ACCOUNTS.get("현금성 자산", [])
+    
+    yearly_data = {}
+    for m in range(1, 13):
+        yearly_data[m] = {"target": goals.get(m, 0), "principal": 0, "evaluation": 0}
         
-        # 2. 현금성 자산 데이터 조회
-        cash_accounts = INVESTMENT_ACCOUNTS.get("현금성 자산", [])
+    try:
         inv_res = client.table("investments").select("*").eq("year", year).execute()
-        
-        yearly_data = {}
-        for m in range(1, 13):
-            yearly_data[m] = {"target": goals.get(m, 0), "principal": 0, "evaluation": 0}
-            
         if inv_res.data:
             for inv in inv_res.data:
                 if inv.get("account_type") in cash_accounts:
@@ -397,8 +402,7 @@ def get_yearly_cash_assets(year: int) -> dict:
                     if m in yearly_data:
                         yearly_data[m]["principal"] += (inv.get("principal") or 0)
                         yearly_data[m]["evaluation"] += (inv.get("amount") or 0)
-                        
-        return yearly_data
     except Exception as e:
-        print(f"Error fetching yearly cash assets: {e}")
-        return {m: {"target": 0, "principal": 0, "evaluation": 0} for m in range(1, 13)}
+        print(f"Error fetching investments in yearly_cash: {e}")
+
+    return yearly_data
