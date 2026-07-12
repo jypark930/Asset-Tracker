@@ -189,6 +189,10 @@ for owner in ["준영", "지윤"]:
             
     for acc, sums in acc_sums.items():
         inv_map[(owner, acc)] = {"principal": sums["p"], "amount": sums["a"]}
+        for i in invests:
+            if i["owner"] == owner and i["account_type"] == acc:
+                i["principal"] = sums["p"]
+                i["amount"] = sums["a"]
 
 
 def calc_pnl(principal, amount):
