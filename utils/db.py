@@ -365,12 +365,40 @@ def get_monthly_goal(year: int, month: int) -> dict:
         print(f"Error fetching monthly goal: {e}")
         return {}
 
-def upsert_monthly_goal(year: int, month: int, target_amount: int) -> bool:
+def upsert_monthly_goal(year: int, month: int, target_amount: int, cash_target_amount: int = 0) -> bool:
     try:
         get_supabase_client().table("monthly_goals").upsert({
-            "user_id": _uid(), "year": year, "month": month, "target_amount": target_amount
+            "user_id": _uid(), "year": year, "month": month, 
+            "target_amount": target_amount, "cash_target_amount": cash_target_amount
         }, on_conflict="user_id,year,month").execute()
         return True
     except Exception as e:
         st.error(f"목표 저장 실패: {e}")
         return False
+def get_yearly_cash_assets(year: int) -> dict:
+    try:
+        client = get_supabase_client()
+        # 1. 월별 목표 데이터 조회
+        goals_res = client.table("monthly_goals").select("*").eq("year", year).execute()
+        goals = {g["month"]: g.get("cash_target_amount", 0) for g in (goals_res.data or [])}
+        
+        # 2. 현금성 자산 데이터 조회
+        cash_accounts = INVESTMENT_ACCOUNTS.get("현금성 자산", [])
+        inv_res = client.table("investments").select("month, principal, amount, account_type").eq("year", year).execute()
+        
+        yearly_data = {}
+        for m in range(1, 13):
+            yearly_data[m] = {"target": goals.get(m, 0), "principal": 0, "evaluation": 0}
+            
+        if inv_res.data:
+            for inv in inv_res.data:
+                if inv.get("account_type") in cash_accounts:
+                    m = inv.get("month")
+                    if m in yearly_data:
+                        yearly_data[m]["principal"] += inv.get("principal", 0)
+                        yearly_data[m]["evaluation"] += inv.get("amount", 0)
+                        
+        return yearly_data
+    except Exception as e:
+        print(f"Error fetching yearly cash assets: {e}")
+        return {m: {"target": 0, "principal": 0, "evaluation": 0} for m in range(1, 13)}
