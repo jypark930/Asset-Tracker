@@ -53,15 +53,13 @@ target_year = st.selectbox("연도 선택", list(range(2024, 2030)), index=list(
 # DB에서 가져오기
 goals_data = get_monthly_goals(target_year)
 goals_dict = {g["month"]: g.get("target_amount", 0) for g in goals_data}
-cash_goals_dict = {g["month"]: g.get("cash_target_amount", 0) for g in goals_data}
 
 # 데이터 프레임 준비 (1월~12월)
 df_data = []
 for m in range(1, 13):
     df_data.append({
         "월": f"{m}월",
-        "목표 총자산 (원)": goals_dict.get(m, 0),
-        "목표 현금성 자산 (원)": cash_goals_dict.get(m, 0)
+        "목표 현금성 자산 (원)": goals_dict.get(m, 0)
     })
 
 edited_df = st.data_editor(
@@ -70,7 +68,6 @@ edited_df = st.data_editor(
     num_rows="fixed",
     column_config={
         "월": st.column_config.TextColumn("월", disabled=True),
-        "목표 총자산 (원)": st.column_config.NumberColumn("목표 총자산 (원)", min_value=0, format="%d", step=10000),
         "목표 현금성 자산 (원)": st.column_config.NumberColumn("목표 현금성 자산 (원)", min_value=0, format="%d", step=10000)
     },
     key=f"goals_editor_{target_year}"
@@ -80,9 +77,8 @@ if st.button("목표 저장", type="secondary", use_container_width=True):
     success_count = 0
     for idx, row in edited_df.iterrows():
         month = idx + 1
-        target_amt = int(row["목표 총자산 (원)"] or 0)
-        cash_target_amt = int(row["목표 현금성 자산 (원)"] or 0)
-        if upsert_monthly_goal(target_year, month, target_amt, cash_target_amt):
+        target_amt = int(row["목표 현금성 자산 (원)"] or 0)
+        if upsert_monthly_goal(target_year, month, target_amt):
             success_count += 1
     
     if success_count == 12:
