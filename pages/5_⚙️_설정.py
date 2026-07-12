@@ -77,7 +77,8 @@ if st.button("목표 저장", type="secondary", use_container_width=True):
     success_count = 0
     for idx, row in edited_df.iterrows():
         month = idx + 1
-        target_amt = int(row["목표 현금성 자산 (원)"] or 0)
+        val = row["목표 현금성 자산 (원)"]
+        target_amt = 0 if pd.isna(val) else int(val)
         if upsert_monthly_goal(target_year, month, target_amt):
             success_count += 1
     
