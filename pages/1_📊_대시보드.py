@@ -66,6 +66,31 @@ if "global_year" not in st.session_state:
     st.session_state.global_year = now.year
 
 all_cash_assets = get_all_cash_assets(start_year=2026, start_month=5)
+
+# ── 전월 누적(가장 최근 마감된 달) 달성률 요약 ────────────────
+latest_closed_asset = None
+for asset in reversed(all_cash_assets):
+    if asset.get("principal") is not None:
+        latest_closed_asset = asset
+        break
+
+if latest_closed_asset:
+    tgt = latest_closed_asset["target"]
+    prin = latest_closed_asset["principal"]
+    ev = latest_closed_asset["evaluation"]
+    
+    prin_rate = (prin / tgt * 100) if tgt else 0
+    ev_rate = (ev / tgt * 100) if tgt else 0
+    
+    st.markdown(f"<div style='font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px;'>📌 가장 최근 마감 기준 ({latest_closed_asset['label']}) 누적 달성률</div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(_get_card_html("🎯 계획 (목표)", f"{tgt:,.0f}원", border_color="#cbd5e1"), unsafe_allow_html=True)
+    with c2:
+        st.markdown(_get_card_html("💰 원금", f"{prin:,.0f}원", delta=f"달성률: {prin_rate:.1f}%", border_color="#3b82f6", delta_color="#2563eb"), unsafe_allow_html=True)
+    with c3:
+        st.markdown(_get_card_html("📈 평가액", f"{ev:,.0f}원", delta=f"달성률: {ev_rate:.1f}%", border_color="#10b981", delta_color="#059669"), unsafe_allow_html=True)
+    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 months_dates = [datetime(item["year"], item["month"], 1) for item in all_cash_assets]
 targets = [(item["target"] / 1_000_000) if item.get("target") else None for item in all_cash_assets]
 principals = [(item["principal"] / 1_000_000) if item.get("principal") else None for item in all_cash_assets]
