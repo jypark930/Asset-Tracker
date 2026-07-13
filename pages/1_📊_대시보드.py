@@ -130,6 +130,24 @@ with col_right:
         st.markdown(_get_summary_table_html("당월 목표", curr_asset["target"], curr_asset["raw_principal"], curr_asset["raw_evaluation"]), unsafe_allow_html=True)
 
 st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
+if prev_asset and curr_asset:
+    c_prin = curr_asset.get("raw_principal") or 0
+    p_prin = prev_asset.get("raw_principal") or 0
+    diff_prin = c_prin - p_prin
+    diff_rate = (diff_prin / p_prin * 100) if p_prin else 0
+    
+    diff_color = "#2563eb" if diff_prin >= 0 else "#ef4444"
+    icon = "📈" if diff_prin >= 0 else "📉"
+    
+    st.markdown(f"""
+    <div style="text-align: center; margin: 0 auto 25px auto; padding: 12px 20px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: inline-block; width: 100%;">
+        <span style="font-size: 15px; font-weight: 600; color: #475569;">전월 대비 원금 증가액: </span>
+        <span style="font-size: 17px; font-weight: 800; color: {diff_color}; margin-left: 8px;">{icon} {diff_prin:+,.0f}원 </span>
+        <span style="font-size: 14px; font-weight: 700; color: {diff_color}; opacity: 0.9;">({diff_rate:+.1f}%)</span>
+    </div>
+    """, unsafe_allow_html=True)
+
 months_dates = [datetime(item["year"], item["month"], 1) for item in all_cash_assets]
 targets = [(item["target"] / 1_000_000) if item.get("target") else None for item in all_cash_assets]
 principals = [(item["principal"] / 1_000_000) if item.get("principal") else None for item in all_cash_assets]
