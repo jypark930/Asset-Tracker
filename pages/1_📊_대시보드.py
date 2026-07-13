@@ -298,16 +298,16 @@ if _txns:
 
     def _mom_badge(curr, prev):
         if prev == 0 and curr == 0:
-            return "<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:0.75rem;font-weight:700;'>- 변동 없음</div>"
+            return "<div style='margin-top:8px;display:inline-block;padding:3px 6px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:clamp(0.65rem, 2vw, 0.75rem);font-weight:700;white-space:nowrap;'>- 변동 없음</div>"
         delta = curr - prev
         if delta > 0:
-            return f"<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#fee2e2;color:#ef4444;font-size:0.75rem;font-weight:700;'>+{delta:,}원</div>"
+            return f"<div style='margin-top:8px;display:inline-block;padding:3px 6px;border-radius:12px;background:#fee2e2;color:#ef4444;font-size:clamp(0.65rem, 2vw, 0.75rem);font-weight:700;white-space:nowrap;'>+{delta:,}원</div>"
         elif delta < 0:
-            return f"<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#dcfce7;color:#16a34a;font-size:0.75rem;font-weight:700;'>{delta:,}원</div>"
+            return f"<div style='margin-top:8px;display:inline-block;padding:3px 6px;border-radius:12px;background:#dcfce7;color:#16a34a;font-size:clamp(0.65rem, 2vw, 0.75rem);font-weight:700;white-space:nowrap;'>{delta:,}원</div>"
         else:
-            return "<div style='margin-top:8px;display:inline-block;padding:3px 8px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:0.75rem;font-weight:700;'>- 변동 없음</div>"
+            return "<div style='margin-top:8px;display:inline-block;padding:3px 6px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:clamp(0.65rem, 2vw, 0.75rem);font-weight:700;white-space:nowrap;'>- 변동 없음</div>"
 
-    _cards_html = "<div style='display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;'>"
+    _cards_html = "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;'>"
     for _idx, (_cat, _amt) in enumerate(_cat_items):
         if _amt == 0:
             continue
@@ -315,22 +315,22 @@ if _txns:
         _badge = _mom_badge(_amt, _prev_cat_sum.get(_cat, 0))
         _cards_html += f"""
         <div style='background:#fff;border:1px solid #e2e8f0;border-radius:12px;
-                    padding:14px 16px;min-width:110px;flex:1;
+                    padding:12px 6px;min-width:90px;flex:1;
                     box-shadow:0 4px 12px rgba(0,0,0,0.03);text-align:center;'>
           <div style='width:24px;height:3px;background:{_color};border-radius:2px;margin:0 auto 8px;'></div>
-          <div style='font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:6px;'>{_cat}</div>
-          <div style='font-size:1.1rem;font-weight:800;color:#1e293b;'>&#8361;{_amt:,}</div>
+          <div style='font-size:clamp(0.7rem, 2vw, 0.75rem);color:#64748b;font-weight:600;margin-bottom:6px;white-space:nowrap;'>{_cat}</div>
+          <div style='font-size:clamp(0.85rem, 2.5vw, 1.1rem);font-weight:800;color:#1e293b;white-space:nowrap;'>&#8361;{_amt:,}</div>
           {_badge}
         </div>"""
 
     _tot_badge = _mom_badge(_total_v, _prev_total_v)
     _cards_html += f"""
         <div style='background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
-                    padding:14px 16px;min-width:130px;flex:1;
+                    padding:12px 6px;min-width:110px;flex:1;
                     box-shadow:0 4px 12px rgba(0,0,0,0.03);text-align:center;'>
           <div style='width:24px;height:3px;background:#ff6b00;border-radius:2px;margin:0 auto 8px;'></div>
-          <div style='font-size:0.75rem;color:#ff6b00;font-weight:600;margin-bottom:6px;'>변동지출 합계</div>
-          <div style='font-size:1.15rem;font-weight:800;color:#ff6b00;'>&#8361;{_total_v:,}</div>
+          <div style='font-size:clamp(0.7rem, 2vw, 0.75rem);color:#ff6b00;font-weight:600;margin-bottom:6px;white-space:nowrap;'>변동지출 합계</div>
+          <div style='font-size:clamp(0.9rem, 2.8vw, 1.15rem);font-weight:800;color:#ff6b00;white-space:nowrap;'>&#8361;{_total_v:,}</div>
           {_tot_badge}
         </div>"""
     _cards_html += "</div>"
