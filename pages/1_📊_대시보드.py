@@ -67,14 +67,14 @@ if "global_year" not in st.session_state:
 
 all_cash_assets = get_all_cash_assets(start_year=2026, start_month=5)
 months_dates = [datetime(item["year"], item["month"], 1) for item in all_cash_assets]
-targets = [item["target"] / 1_000_000 for item in all_cash_assets]
-principals = [item["principal"] / 1_000_000 for item in all_cash_assets]
-evaluations = [item["evaluation"] / 1_000_000 for item in all_cash_assets]
+targets = [(item["target"] / 1_000_000) if item.get("target") else None for item in all_cash_assets]
+principals = [(item["principal"] / 1_000_000) if item.get("principal") else None for item in all_cash_assets]
+evaluations = [(item["evaluation"] / 1_000_000) if item.get("evaluation") else None for item in all_cash_assets]
 
 fig_line = go.Figure()
-fig_line.add_trace(go.Scatter(x=months_dates, y=targets, mode='lines+markers', name='계획', line=dict(color='#cbd5e1', width=2, dash='dash'), marker=dict(color='#cbd5e1'), hovertemplate='%{y:,.0f}백만<extra></extra>'))
-fig_line.add_trace(go.Scatter(x=months_dates, y=principals, mode='lines+markers', name='원금', line=dict(color='#3b82f6', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>'))
-fig_line.add_trace(go.Scatter(x=months_dates, y=evaluations, mode='lines+markers', name='평가액', line=dict(color='#10b981', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>'))
+fig_line.add_trace(go.Scatter(x=months_dates, y=targets, mode='lines+markers', name='계획', line=dict(color='#cbd5e1', width=2, dash='dash'), marker=dict(color='#cbd5e1'), hovertemplate='%{y:,.0f}백만<extra></extra>', connectgaps=True))
+fig_line.add_trace(go.Scatter(x=months_dates, y=principals, mode='lines+markers', name='원금', line=dict(color='#3b82f6', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>', connectgaps=True))
+fig_line.add_trace(go.Scatter(x=months_dates, y=evaluations, mode='lines+markers', name='평가액', line=dict(color='#10b981', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>', connectgaps=True))
 
 import datetime as dt
 
