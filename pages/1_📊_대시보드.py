@@ -68,7 +68,10 @@ if "global_year" not in st.session_state:
 all_cash_assets = get_all_cash_assets(start_year=2026, start_month=5)
 
 # ── 전월/당월 달성 현황 요약 ────────────────
-cy, cm = now.year, now.month
+if "global_month" not in st.session_state:
+    st.session_state.global_month = now.month
+
+cy, cm = st.session_state.global_year, st.session_state.global_month
 py, pm = (cy, cm - 1) if cm > 1 else (cy - 1, 12)
 
 prev_asset = next((a for a in all_cash_assets if a["year"] == py and a["month"] == pm), None)
