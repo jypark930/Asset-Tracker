@@ -346,30 +346,3 @@ if _txns:
 draw_neon_divider()
 
 
-# ── 🎯 현금성 자산 목표 진척도 ──────────────────────────────────
-target_amount = goal_data.get("target_amount") if goal_data else 0
-target_amount = int(target_amount) if target_amount else 0
-
-if target_amount > 0:
-    progress_pct = (cash_asset / target_amount) * 100
-    if progress_pct > 100: progress_pct = 100
-    
-    st.markdown(f"""
-    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-            <span style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">🎯 {year}년 {month}월 현금성 자산 목표 진척도</span>
-            <span style="font-size: 0.95rem; font-weight: 600; color: #3b82f6;">{progress_pct:.1f}%</span>
-        </div>
-        <div style="width: 100%; background-color: #e2e8f0; border-radius: 9999px; height: 12px; overflow: hidden; margin-bottom: 8px;">
-            <div style="background-color: #3b82f6; height: 12px; border-radius: 9999px; width: {progress_pct}%; transition: width 0.5s ease-in-out;"></div>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b;">
-            <span>현재: ₩{cash_asset:,.0f}</span>
-            <span>목표: ₩{target_amount:,.0f}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.info("🎯 설정 메뉴에서 이달의 자산 목표를 설정하여 진척도를 확인해 보세요.")
-
-
