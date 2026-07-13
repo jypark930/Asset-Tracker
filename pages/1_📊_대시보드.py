@@ -83,8 +83,9 @@ fig_line.update_layout(
         showgrid=False, 
         tickfont=dict(color="#64748b", size=11),
         tickformat="%y.%m",
-        dtick="M2",  # Show tick every 2 months
-        title_font=dict(size=12, color="#64748b")
+        dtick="M1",  # 1개월 단위
+        title_font=dict(size=12, color="#64748b"),
+        fixedrange=True
     ),
     yaxis=dict(
         showgrid=True, 
@@ -92,14 +93,16 @@ fig_line.update_layout(
         tickfont=dict(color="#64748b", size=11), 
         tickformat=",.0f",
         title="단위: 백만원",
-        title_font=dict(size=11, color="#94a3b8")
+        title_font=dict(size=11, color="#94a3b8"),
+        fixedrange=True
     ),
     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(size=12, color="#475569")),
     margin=dict(l=10, r=10, t=10, b=10),
     height=320,
+    width=max(800, len(months_dates) * 60), # 숫자 4개(약 60px) 너비 고정
     hovermode="x unified"
 )
-st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
+st.plotly_chart(fig_line, use_container_width=False, config={"displayModeBar": False, "scrollZoom": False})
 
 draw_neon_divider()
 
