@@ -66,24 +66,37 @@ if "global_year" not in st.session_state:
     st.session_state.global_year = now.year
 
 all_cash_assets = get_all_cash_assets(start_year=2026, start_month=5)
-months_labels = [item["label"] for item in all_cash_assets]
-targets = [item["target"] for item in all_cash_assets]
-principals = [item["principal"] for item in all_cash_assets]
-evaluations = [item["evaluation"] for item in all_cash_assets]
+months_dates = [datetime(item["year"], item["month"], 1) for item in all_cash_assets]
+targets = [item["target"] / 1_000_000 for item in all_cash_assets]
+principals = [item["principal"] / 1_000_000 for item in all_cash_assets]
+evaluations = [item["evaluation"] / 1_000_000 for item in all_cash_assets]
 
 fig_line = go.Figure()
-fig_line.add_trace(go.Scatter(x=months_labels, y=targets, mode='lines+markers', name='계획', line=dict(color='#cbd5e1', width=2, dash='dash'), marker=dict(color='#cbd5e1')))
-fig_line.add_trace(go.Scatter(x=months_labels, y=principals, mode='lines+markers', name='원금', line=dict(color='#3b82f6', width=3), marker=dict(size=6)))
-fig_line.add_trace(go.Scatter(x=months_labels, y=evaluations, mode='lines+markers', name='평가액', line=dict(color='#10b981', width=3), marker=dict(size=6)))
+fig_line.add_trace(go.Scatter(x=months_dates, y=targets, mode='lines+markers', name='계획', line=dict(color='#cbd5e1', width=2, dash='dash'), marker=dict(color='#cbd5e1'), hovertemplate='%{y:,.0f}백만<extra></extra>'))
+fig_line.add_trace(go.Scatter(x=months_dates, y=principals, mode='lines+markers', name='원금', line=dict(color='#3b82f6', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>'))
+fig_line.add_trace(go.Scatter(x=months_dates, y=evaluations, mode='lines+markers', name='평가액', line=dict(color='#10b981', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>'))
 
 fig_line.update_layout(
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=11)),
-    yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont=dict(color="#64748b", size=11), tickformat=",.0f"),
+    xaxis=dict(
+        showgrid=False, 
+        tickfont=dict(color="#64748b", size=11),
+        tickformat="%y.%m",
+        dtick="M2",  # Show tick every 2 months
+        title_font=dict(size=12, color="#64748b")
+    ),
+    yaxis=dict(
+        showgrid=True, 
+        gridcolor="#f1f5f9", 
+        tickfont=dict(color="#64748b", size=11), 
+        tickformat=",.0f",
+        title="단위: 백만원",
+        title_font=dict(size=11, color="#94a3b8")
+    ),
     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(size=12, color="#475569")),
     margin=dict(l=10, r=10, t=10, b=10),
-    height=280,
+    height=320,
     hovermode="x unified"
 )
 st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
