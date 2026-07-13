@@ -74,49 +74,59 @@ py, pm = (cy, cm - 1) if cm > 1 else (cy - 1, 12)
 prev_asset = next((a for a in all_cash_assets if a["year"] == py and a["month"] == pm), None)
 curr_asset = next((a for a in all_cash_assets if a["year"] == cy and a["month"] == cm), None)
 
+def _get_summary_table_html(title, tgt, prin, ev):
+    if tgt is None: tgt = 0
+    if prin is None: prin = 0
+    if ev is None: ev = 0
+    
+    prin_rate = (prin / tgt * 100) if tgt else 0
+    prin_diff = prin - tgt
+    ev_rate = (ev / tgt * 100) if tgt else 0
+    ev_diff = ev - tgt
+    
+    prin_color = "#2563eb" if prin_diff >= 0 else "#ef4444"
+    ev_color = "#059669" if ev_diff >= 0 else "#ef4444"
+    
+    return f"""
+    <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: clamp(12px, 1.5vw, 15px); border: 1px solid #cbd5e1; background-color: #ffffff; margin-bottom: 20px;">
+      <tr>
+        <th colspan="4" style="border: 1px solid #cbd5e1; padding: 8px; background-color: #f8fafc; color: #1e293b; font-weight: 700;">{title}</th>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 800; font-size: clamp(14px, 2vw, 18px); color: #0f172a;">{tgt:,.0f}</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; background-color: #f8fafc; font-weight: 600; color: #475569; width: 25%;">원금</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; color: #334155; width: 25%;">{prin:,.0f}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; background-color: #f8fafc; font-weight: 600; color: #475569; width: 25%;">평가금</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; color: #334155; width: 25%;">{ev:,.0f}</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; background-color: #f8fafc; font-weight: 600; color: #475569;">달성률</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; color: #334155;">{prin_rate:.1f}%</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; background-color: #f8fafc; font-weight: 600; color: #475569;">달성률</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; color: #334155;">{ev_rate:.1f}%</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; background-color: #f8fafc; font-weight: 600; color: #475569;">차액</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; color: {prin_color};">{prin_diff:+,.0f}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; background-color: #f8fafc; font-weight: 600; color: #475569;">차액</td>
+        <td style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; color: {ev_color};">{ev_diff:+,.0f}</td>
+      </tr>
+    </table>
+    """
+
 col_left, col_right = st.columns(2)
 
 with col_left:
     if prev_asset:
-        st.markdown(f"<div style='font-size: 15px; font-weight: 700; color: #475569; margin-bottom: 8px;'>📌 전월 달성 현황 ({prev_asset['label']})</div>", unsafe_allow_html=True)
-        tgt = prev_asset["target"]
-        prin = prev_asset["raw_principal"]
-        ev = prev_asset["raw_evaluation"]
-        prin_rate = (prin / tgt * 100) if tgt else 0
-        prin_diff = prin - tgt
-        ev_rate = (ev / tgt * 100) if tgt else 0
-        ev_diff = ev - tgt
-        
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown(_get_card_html("🎯 전월 목표", f"{tgt:,.0f}", border_color="#cbd5e1"), unsafe_allow_html=True)
-        with c2:
-            diff_color = "#2563eb" if prin_diff >= 0 else "#ef4444"
-            st.markdown(_get_card_html("💰 원금", f"{prin:,.0f}", delta=f"달성률: {prin_rate:.1f}%<br>차액: {prin_diff:+,.0f}", border_color="#3b82f6", delta_color=diff_color), unsafe_allow_html=True)
-        with c3:
-            diff_color = "#059669" if ev_diff >= 0 else "#ef4444"
-            st.markdown(_get_card_html("📈 평가금", f"{ev:,.0f}", delta=f"달성률: {ev_rate:.1f}%<br>차액: {ev_diff:+,.0f}", border_color="#10b981", delta_color=diff_color), unsafe_allow_html=True)
+        st.markdown(_get_summary_table_html("전월 목표", prev_asset["target"], prev_asset["raw_principal"], prev_asset["raw_evaluation"]), unsafe_allow_html=True)
 
 with col_right:
     if curr_asset:
-        st.markdown(f"<div style='font-size: 15px; font-weight: 700; color: #475569; margin-bottom: 8px;'>🚀 당월 현황 ({curr_asset['label']})</div>", unsafe_allow_html=True)
-        tgt = curr_asset["target"]
-        prin = curr_asset["raw_principal"]
-        ev = curr_asset["raw_evaluation"]
-        prin_diff = prin - tgt
-        ev_diff = ev - tgt
-        
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown(_get_card_html("🎯 당월 목표", f"{tgt:,.0f}", border_color="#cbd5e1"), unsafe_allow_html=True)
-        with c2:
-            diff_color = "#2563eb" if prin_diff >= 0 else "#ef4444"
-            st.markdown(_get_card_html("💰 원금", f"{prin:,.0f}", delta=f"목표 대비 차액<br>{prin_diff:+,.0f}", border_color="#3b82f6", delta_color=diff_color), unsafe_allow_html=True)
-        with c3:
-            diff_color = "#059669" if ev_diff >= 0 else "#ef4444"
-            st.markdown(_get_card_html("📈 평가금", f"{ev:,.0f}", delta=f"목표 대비 차액<br>{ev_diff:+,.0f}", border_color="#10b981", delta_color=diff_color), unsafe_allow_html=True)
+        st.markdown(_get_summary_table_html("당월 목표", curr_asset["target"], curr_asset["raw_principal"], curr_asset["raw_evaluation"]), unsafe_allow_html=True)
 
-st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 months_dates = [datetime(item["year"], item["month"], 1) for item in all_cash_assets]
 targets = [(item["target"] / 1_000_000) if item.get("target") else None for item in all_cash_assets]
 principals = [(item["principal"] / 1_000_000) if item.get("principal") else None for item in all_cash_assets]
