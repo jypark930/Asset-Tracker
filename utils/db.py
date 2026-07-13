@@ -452,16 +452,7 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
     except Exception as e:
         print(f"Error fetching closed dates: {e}")
 
-    end_year, end_month = 2028, 12
-    if goals_dict:
-        max_y = max(y for y, m in goals_dict.keys())
-        max_m = max(m for y, m in goals_dict.keys() if y == max_y)
-        if max_y > end_year or (max_y == end_year and max_m > end_month):
-            end_year, end_month = max_y, max_m
-            
-    now = datetime.now()
-    if now.year > end_year or (now.year == end_year and now.month > end_month):
-        end_year, end_month = now.year, now.month
+    end_year, end_month = 2026, 9
 
     results = []
     y, m = start_year, start_month
