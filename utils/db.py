@@ -438,8 +438,8 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
     except Exception as e:
         print(f"Error fetching all investments: {e}")
 
-    # 3. 데이터 결합 (마감된 마지막 달까지만 표시)
-    end_year, end_month = start_year, start_month
+    # 3. 데이터 결합 (마감된 마지막 달까지만 원금/평가액 표시, 가로축은 전체 목표 기간)
+    latest_closed = None
     try:
         income_res = client.table("monthly_income").select("year, month, confirmed_fields").execute()
         closed_dates = []
@@ -447,27 +447,41 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
             cf = inc.get("confirmed_fields") or []
             if "investments_closed" in cf:
                 closed_dates.append((inc["year"], inc["month"]))
-        
         if closed_dates:
-            end_year, end_month = max(closed_dates)
-        else:
-            now = datetime.now()
-            end_year, end_month = now.year, now.month
+            latest_closed = max(closed_dates)
     except Exception as e:
-        now = datetime.now()
+        print(f"Error fetching closed dates: {e}")
+
+    end_year, end_month = 2028, 12
+    if goals_dict:
+        max_y = max(y for y, m in goals_dict.keys())
+        max_m = max(m for y, m in goals_dict.keys() if y == max_y)
+        if max_y > end_year or (max_y == end_year and max_m > end_month):
+            end_year, end_month = max_y, max_m
+            
+    now = datetime.now()
+    if now.year > end_year or (now.year == end_year and now.month > end_month):
         end_year, end_month = now.year, now.month
 
     results = []
     y, m = start_year, start_month
     while True:
         key = (y, m)
+        # 마감된 달까지만 원금/평가액 반영, 미래는 None
+        if latest_closed is None or (y > latest_closed[0] or (y == latest_closed[0] and m > latest_closed[1])):
+            prin = None
+            ev = None
+        else:
+            prin = inv_dict.get(key, {}).get("principal", 0)
+            ev = inv_dict.get(key, {}).get("evaluation", 0)
+
         results.append({
             "year": y,
             "month": m,
             "label": f"{str(y)[2:]}년 {m}월",
             "target": goals_dict.get(key, 0),
-            "principal": inv_dict.get(key, {}).get("principal", 0),
-            "evaluation": inv_dict.get(key, {}).get("evaluation", 0)
+            "principal": prin,
+            "evaluation": ev
         })
         if y == end_year and m == end_month:
             break
