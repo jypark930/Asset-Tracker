@@ -84,17 +84,13 @@ month = st.session_state.global_month
 
 nav_container = st.container()
 with nav_container:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col1:
-        st.button("◀", on_click=prev_month, use_container_width=True)
-    with col2:
-        st.markdown(f"""
-        <div id="month-nav-marker" style='display: flex; align-items: center; justify-content: center; height: 100%; font-size: 1.2rem; font-weight: 700; color: #1e293b;'>
-            <span>{year}년 {month}월</span>
-        </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        st.button("▶", on_click=next_month, use_container_width=True)
+    st.button("◀", on_click=prev_month)
+    st.markdown(f"""
+    <div id="month-nav-marker" style='display: flex; align-items: center; justify-content: center; height: 42px; width: 140px; font-size: 1.2rem; font-weight: 700; color: #1e293b; margin: 0 auto;'>
+        <span style="transform: translateY(-4px);">{year}년 {month}월</span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.button("▶", on_click=next_month)
 
 draw_neon_divider()
 
