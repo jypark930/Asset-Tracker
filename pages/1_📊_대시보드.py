@@ -76,6 +76,16 @@ fig_line.add_trace(go.Scatter(x=months_dates, y=targets, mode='lines+markers', n
 fig_line.add_trace(go.Scatter(x=months_dates, y=principals, mode='lines+markers', name='원금', line=dict(color='#3b82f6', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>'))
 fig_line.add_trace(go.Scatter(x=months_dates, y=evaluations, mode='lines+markers', name='평가액', line=dict(color='#10b981', width=3), marker=dict(size=6), hovertemplate='%{y:,.0f}백만<extra></extra>'))
 
+import datetime as dt
+
+# 6개월 범위 계산 (첫 데이터 기준 6개월)
+if len(months_dates) > 6:
+    default_range = [months_dates[0], months_dates[6]]
+elif len(months_dates) > 0:
+    default_range = [months_dates[0], months_dates[-1]]
+else:
+    default_range = None
+
 fig_line.update_layout(
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
@@ -85,7 +95,8 @@ fig_line.update_layout(
         tickformat="%y.%m",
         dtick="M1",  # 1개월 단위
         title_font=dict(size=12, color="#64748b"),
-        fixedrange=True
+        range=default_range, # 기본 6개월치만 줌(Zoom)해서 보여줌
+        fixedrange=False # 좌우 스와이프(이동) 허용
     ),
     yaxis=dict(
         showgrid=True, 
@@ -94,15 +105,14 @@ fig_line.update_layout(
         tickformat=",.0f",
         title="단위: 백만원",
         title_font=dict(size=11, color="#94a3b8"),
-        fixedrange=True
+        fixedrange=True # 위아래 이동은 금지
     ),
     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(size=12, color="#475569")),
     margin=dict(l=10, r=10, t=10, b=10),
     height=320,
-    width=max(800, len(months_dates) * 240), # 월별 240px 고정
     hovermode="x unified"
 )
-st.plotly_chart(fig_line, use_container_width=False, config={"displayModeBar": False, "scrollZoom": False})
+st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
 
 draw_neon_divider()
 
