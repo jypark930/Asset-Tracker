@@ -438,16 +438,23 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
     except Exception as e:
         print(f"Error fetching all investments: {e}")
 
-    # 3. 데이터 결합
-    end_year, end_month = 2028, 12
-    if goals_dict:
-        max_y = max(y for y, m in goals_dict.keys())
-        max_m = max(m for y, m in goals_dict.keys() if y == max_y)
-        if max_y > end_year or (max_y == end_year and max_m > end_month):
-            end_year, end_month = max_y, max_m
-            
-    now = datetime.now()
-    if now.year > end_year or (now.year == end_year and now.month > end_month):
+    # 3. 데이터 결합 (마감된 마지막 달까지만 표시)
+    end_year, end_month = start_year, start_month
+    try:
+        income_res = client.table("monthly_income").select("year, month, confirmed_fields").execute()
+        closed_dates = []
+        for inc in (income_res.data or []):
+            cf = inc.get("confirmed_fields") or []
+            if "investments_closed" in cf:
+                closed_dates.append((inc["year"], inc["month"]))
+        
+        if closed_dates:
+            end_year, end_month = max(closed_dates)
+        else:
+            now = datetime.now()
+            end_year, end_month = now.year, now.month
+    except Exception as e:
+        now = datetime.now()
         end_year, end_month = now.year, now.month
 
     results = []
