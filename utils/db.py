@@ -472,7 +472,9 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
             "label": f"{str(y)[2:]}년 {m}월",
             "target": goals_dict.get(key, 0),
             "principal": prin,
-            "evaluation": ev
+            "evaluation": ev,
+            "raw_principal": inv_dict.get(key, {}).get("principal", 0),
+            "raw_evaluation": inv_dict.get(key, {}).get("evaluation", 0)
         })
         if y == end_year and m == end_month:
             break

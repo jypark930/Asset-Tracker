@@ -67,30 +67,56 @@ if "global_year" not in st.session_state:
 
 all_cash_assets = get_all_cash_assets(start_year=2026, start_month=5)
 
-# ── 전월 누적(가장 최근 마감된 달) 달성률 요약 ────────────────
-latest_closed_asset = None
-for asset in reversed(all_cash_assets):
-    if asset.get("principal") is not None:
-        latest_closed_asset = asset
-        break
+# ── 전월/당월 달성 현황 요약 ────────────────
+cy, cm = now.year, now.month
+py, pm = (cy, cm - 1) if cm > 1 else (cy - 1, 12)
 
-if latest_closed_asset:
-    tgt = latest_closed_asset["target"]
-    prin = latest_closed_asset["principal"]
-    ev = latest_closed_asset["evaluation"]
-    
-    prin_rate = (prin / tgt * 100) if tgt else 0
-    ev_rate = (ev / tgt * 100) if tgt else 0
-    
-    st.markdown(f"<div style='font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px;'>📌 가장 최근 마감 기준 ({latest_closed_asset['label']}) 누적 달성률</div>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown(_get_card_html("🎯 계획 (목표)", f"{tgt:,.0f}원", border_color="#cbd5e1"), unsafe_allow_html=True)
-    with c2:
-        st.markdown(_get_card_html("💰 원금", f"{prin:,.0f}원", delta=f"달성률: {prin_rate:.1f}%", border_color="#3b82f6", delta_color="#2563eb"), unsafe_allow_html=True)
-    with c3:
-        st.markdown(_get_card_html("📈 평가액", f"{ev:,.0f}원", delta=f"달성률: {ev_rate:.1f}%", border_color="#10b981", delta_color="#059669"), unsafe_allow_html=True)
-    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+prev_asset = next((a for a in all_cash_assets if a["year"] == py and a["month"] == pm), None)
+curr_asset = next((a for a in all_cash_assets if a["year"] == cy and a["month"] == cm), None)
+
+col_left, col_right = st.columns(2)
+
+with col_left:
+    if prev_asset:
+        st.markdown(f"<div style='font-size: 15px; font-weight: 700; color: #475569; margin-bottom: 8px;'>📌 전월 달성 현황 ({prev_asset['label']})</div>", unsafe_allow_html=True)
+        tgt = prev_asset["target"]
+        prin = prev_asset["raw_principal"]
+        ev = prev_asset["raw_evaluation"]
+        prin_rate = (prin / tgt * 100) if tgt else 0
+        prin_diff = prin - tgt
+        ev_rate = (ev / tgt * 100) if tgt else 0
+        ev_diff = ev - tgt
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown(_get_card_html("🎯 전월 목표", f"{tgt:,.0f}", border_color="#cbd5e1"), unsafe_allow_html=True)
+        with c2:
+            diff_color = "#2563eb" if prin_diff >= 0 else "#ef4444"
+            st.markdown(_get_card_html("💰 원금", f"{prin:,.0f}", delta=f"달성률: {prin_rate:.1f}%<br>차액: {prin_diff:+,.0f}", border_color="#3b82f6", delta_color=diff_color), unsafe_allow_html=True)
+        with c3:
+            diff_color = "#059669" if ev_diff >= 0 else "#ef4444"
+            st.markdown(_get_card_html("📈 평가금", f"{ev:,.0f}", delta=f"달성률: {ev_rate:.1f}%<br>차액: {ev_diff:+,.0f}", border_color="#10b981", delta_color=diff_color), unsafe_allow_html=True)
+
+with col_right:
+    if curr_asset:
+        st.markdown(f"<div style='font-size: 15px; font-weight: 700; color: #475569; margin-bottom: 8px;'>🚀 당월 현황 ({curr_asset['label']})</div>", unsafe_allow_html=True)
+        tgt = curr_asset["target"]
+        prin = curr_asset["raw_principal"]
+        ev = curr_asset["raw_evaluation"]
+        prin_diff = prin - tgt
+        ev_diff = ev - tgt
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown(_get_card_html("🎯 당월 목표", f"{tgt:,.0f}", border_color="#cbd5e1"), unsafe_allow_html=True)
+        with c2:
+            diff_color = "#2563eb" if prin_diff >= 0 else "#ef4444"
+            st.markdown(_get_card_html("💰 원금", f"{prin:,.0f}", delta=f"목표 대비 차액<br>{prin_diff:+,.0f}", border_color="#3b82f6", delta_color=diff_color), unsafe_allow_html=True)
+        with c3:
+            diff_color = "#059669" if ev_diff >= 0 else "#ef4444"
+            st.markdown(_get_card_html("📈 평가금", f"{ev:,.0f}", delta=f"목표 대비 차액<br>{ev_diff:+,.0f}", border_color="#10b981", delta_color=diff_color), unsafe_allow_html=True)
+
+st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 months_dates = [datetime(item["year"], item["month"], 1) for item in all_cash_assets]
 targets = [(item["target"] / 1_000_000) if item.get("target") else None for item in all_cash_assets]
 principals = [(item["principal"] / 1_000_000) if item.get("principal") else None for item in all_cash_assets]
