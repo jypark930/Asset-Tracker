@@ -99,7 +99,7 @@ fig_line.update_layout(
     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(size=12, color="#475569")),
     margin=dict(l=10, r=10, t=10, b=10),
     height=320,
-    width=max(800, len(months_dates) * 60), # 숫자 4개(약 60px) 너비 고정
+    width=max(800, len(months_dates) * 240), # 월별 240px 고정
     hovermode="x unified"
 )
 st.plotly_chart(fig_line, use_container_width=False, config={"displayModeBar": False, "scrollZoom": False})
