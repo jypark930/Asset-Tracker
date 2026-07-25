@@ -9,7 +9,7 @@ from datetime import datetime
 st.set_page_config(page_title="대시보드", page_icon="📊", layout="wide")
 
 from utils.auth import is_authenticated, get_current_user, try_restore_session, EMAIL_TO_NAME
-from utils.db import get_monthly_summary, get_transactions, get_monthly_goal, INVESTMENT_ACCOUNTS, get_yearly_cash_assets, get_all_cash_assets
+from utils.db import get_monthly_summary, get_transactions, get_monthly_goal, INVESTMENT_ACCOUNTS, get_yearly_cash_assets, get_all_cash_assets, get_all_household_trends, TREND_CATEGORIES
 
 if not is_authenticated():
     if not try_restore_session():
@@ -251,29 +251,7 @@ tinv = s["total_investment"]
 t_asset = s.get("total_principal") or 0 
 cash_asset = sum((inv.get("principal") or 0) for inv in s.get("investments", []) if inv.get("account_type") in INVESTMENT_ACCOUNTS.get("현금성 자산", []))
 
-# ── KPI 카드 (모바일 최적화 Grid) ──────────────────────────
-delta_str = "▲ 흑자" if net >= 0 else "▼ 적자"
-is_positive = "▲" in delta_str or "흑자" in delta_str
-delta_color = "#10b981" if is_positive else "#ef4444"
-
-grid_html = f"""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 10px;">
-<div>{_get_card_html("총 수입", f"₩{ti:,.0f}", "", "#ff6b00")}</div>
-<div>{_get_card_html("고정비", f"₩{tf:,.0f}", "", "#475569")}</div>
-<div>{_get_card_html("변동비", f"₩{tv + tu:,.0f}", "", "#94a3b8")}</div>
-</div>
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 5px;">
-<div>{_get_card_html("잔여금", f"₩{net:,.0f}", delta_str, "#1b263b", delta_color)}</div>
-<div>{_get_card_html("현금성 자산", f"₩{cash_asset:,.0f}", "", "#8b5cf6")}</div>
-<div>{_get_card_html("총 자산", f"₩{t_asset:,.0f}", "", "#3b82f6")}</div>
-</div>
-<div style="text-align: right; font-size: 0.8rem; color: #64748b; margin-bottom: 20px;">
-* 금액 기준은 평가액이 아닌, 원금 기준임
-</div>"""
-st.markdown(grid_html, unsafe_allow_html=True)
-
-draw_neon_divider()
-
-# ── 카테고리별 요약 카드 (전월비 포함) ──────────────────────────────
+# ── 카테고리별 요약 카드 및 도넛 차트 (최상단 이동) ──────────────────────────────
 from utils.db import CATEGORIES, get_monthly_income, get_fixed_costs, get_utility_costs, get_other_incomes
 
 _cat_colors = ["#ff6b00", "#1b263b", "#3b82f6", "#94a3b8", "#f97316", "#475569"]
@@ -307,6 +285,31 @@ if _txns:
         else:
             return "<div style='margin-top:8px;display:inline-block;padding:3px 6px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:clamp(0.65rem, 2vw, 0.75rem);font-weight:700;white-space:nowrap;'>- 변동 없음</div>"
 
+    # ── 변동지출 구성 도넛 차트 (최상단 배치) ──────────────────────────────
+    _cat_for_pie = {k: v for k, v in _cat_sum.items() if v > 0}
+    if _cat_for_pie:
+        _fig_pie = px.pie(
+            values=list(_cat_for_pie.values()),
+            names=list(_cat_for_pie.keys()),
+            color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
+            color_discrete_map={"준영점심": "#10b981"},
+            hole=0.5,
+        )
+        _fig_pie.update_traces(
+            textposition="inside",
+            textinfo="percent+label",
+            marker=dict(line=dict(color='#ffffff', width=4))
+        )
+        _fig_pie.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
+            height=320, margin=dict(l=0, r=0, t=10, b=0),
+            legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
+        )
+        st.plotly_chart(_fig_pie, use_container_width=True)
+
+    draw_neon_divider()
+
+    # ── 카테고리별 요약 카드 (도넛 차트 바로 아래 배치) ──────────────────────────────
     _cards_html = "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;'>"
     for _idx, (_cat, _amt) in enumerate(_cat_items):
         if _amt == 0:
@@ -338,28 +341,92 @@ if _txns:
 
     draw_neon_divider()
 
-    # ── 변동지출 구성 도넛 차트 ──────────────────────────────
-    if _cat_sum:
-        _cat_for_pie = {k: v for k, v in _cat_sum.items() if v > 0}
-        if _cat_for_pie:
-            _fig_pie = px.pie(
-                values=list(_cat_for_pie.values()),
-                names=list(_cat_for_pie.keys()),
-                color_discrete_sequence=["#ff6b00", "#1b263b", "#f97316", "#3b82f6", "#94a3b8", "#cbd5e1", "#8b5cf6", "#ec4899"],
-                color_discrete_map={"준영점심": "#10b981"},
-                hole=0.5,
-            )
-            _fig_pie.update_traces(
-                textposition="inside",
-                textinfo="percent+label",
-                marker=dict(line=dict(color='#ffffff', width=4))
-            )
-            _fig_pie.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", font_color="#475569",
-                height=320, margin=dict(l=0, r=0, t=10, b=0),
-                legend=dict(font=dict(size=11), orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
-            )
-            st.plotly_chart(_fig_pie, use_container_width=True)
+
+# ── KPI 카드 (6개 네모박스 Grid - 아래로 이동) ──────────────────────────
+delta_str = "▲ 흑자" if net >= 0 else "▼ 적자"
+is_positive = "▲" in delta_str or "흑자" in delta_str
+delta_color = "#10b981" if is_positive else "#ef4444"
+
+grid_html = f"""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 10px;">
+<div>{_get_card_html("총 수입", f"₩{ti:,.0f}", "", "#ff6b00")}</div>
+<div>{_get_card_html("고정비", f"₩{tf:,.0f}", "", "#475569")}</div>
+<div>{_get_card_html("변동비", f"₩{tv + tu:,.0f}", "", "#94a3b8")}</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 5px;">
+<div>{_get_card_html("잔여금", f"₩{net:,.0f}", delta_str, "#1b263b", delta_color)}</div>
+<div>{_get_card_html("현금성 자산", f"₩{cash_asset:,.0f}", "", "#8b5cf6")}</div>
+<div>{_get_card_html("총 자산", f"₩{t_asset:,.0f}", "", "#3b82f6")}</div>
+</div>
+<div style="text-align: right; font-size: 0.8rem; color: #64748b; margin-bottom: 20px;">
+* 금액 기준은 평가액이 아닌, 원금 기준임
+</div>"""
+st.markdown(grid_html, unsafe_allow_html=True)
+
+draw_neon_divider()
+
+# ── 월별 가계부 사용 추이 그래프 (최하단 추가) ──────────────────────────────
+st.markdown("""
+<div style="width: 100%; display: flex; justify-content: center; margin-bottom: 12px; margin-top: 10px;">
+    <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0 auto; text-align: center !important; width: 100%;">
+        📈 월별 가계부 사용 추이
+    </h2>
+</div>
+""", unsafe_allow_html=True)
+
+trend_data = get_all_household_trends(start_year=2026, start_month=5)
+selected_cat = st.selectbox("📊 조회할 가계부 항목을 선택하세요", TREND_CATEGORIES, index=1)
+
+trend_dates = [datetime(item["year"], item["month"], 1) for item in trend_data]
+trend_vals = [item["values"].get(selected_cat) for item in trend_data]
+
+fig_trend = go.Figure()
+fig_trend.add_trace(go.Scatter(
+    x=trend_dates, 
+    y=trend_vals, 
+    mode='lines+markers', 
+    name=selected_cat, 
+    line=dict(color='#ff6b00', width=3), 
+    marker=dict(size=7, color='#ff6b00'), 
+    fill='tozeroy',
+    fillcolor='rgba(255, 107, 0, 0.08)',
+    hovertemplate='₩%{y:,.0f}<extra></extra>', 
+    connectgaps=True
+))
+
+if len(trend_dates) > 6:
+    trend_range = [trend_dates[0], trend_dates[6]]
+elif len(trend_dates) > 0:
+    trend_range = [trend_dates[0], trend_dates[-1]]
+else:
+    trend_range = None
+
+fig_trend.update_layout(
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    xaxis=dict(
+        showgrid=False, 
+        tickfont=dict(color="#64748b", size=11),
+        tickformat="%y.%m",
+        dtick="M1",
+        title_font=dict(size=12, color="#64748b"),
+        range=trend_range,
+        fixedrange=False
+    ),
+    yaxis=dict(
+        showgrid=True, 
+        gridcolor="#f1f5f9", 
+        tickfont=dict(color="#64748b", size=11), 
+        tickformat=",.0f",
+        title="단위: 원",
+        title_font=dict(size=11, color="#94a3b8"),
+        fixedrange=True
+    ),
+    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(size=12, color="#475569")),
+    margin=dict(l=10, r=10, t=10, b=10),
+    height=320,
+    hovermode="x unified"
+)
+st.plotly_chart(fig_trend, use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
 
 draw_neon_divider()
 
