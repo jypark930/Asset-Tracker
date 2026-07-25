@@ -251,7 +251,29 @@ tinv = s["total_investment"]
 t_asset = s.get("total_principal") or 0 
 cash_asset = sum((inv.get("principal") or 0) for inv in s.get("investments", []) if inv.get("account_type") in INVESTMENT_ACCOUNTS.get("현금성 자산", []))
 
-# ── 카테고리별 요약 카드 및 도넛 차트 (최상단 이동) ──────────────────────────────
+# ── KPI 카드 (6개 네모박스 Grid - 도넛차트 상단으로 이동) ──────────────────────────
+delta_str = "▲ 흑자" if net >= 0 else "▼ 적자"
+is_positive = "▲" in delta_str or "흑자" in delta_str
+delta_color = "#10b981" if is_positive else "#ef4444"
+
+grid_html = f"""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 10px;">
+<div>{_get_card_html("총 수입", f"₩{ti:,.0f}", "", "#ff6b00")}</div>
+<div>{_get_card_html("고정비", f"₩{tf:,.0f}", "", "#475569")}</div>
+<div>{_get_card_html("변동비", f"₩{tv + tu:,.0f}", "", "#94a3b8")}</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 5px;">
+<div>{_get_card_html("잔여금", f"₩{net:,.0f}", delta_str, "#1b263b", delta_color)}</div>
+<div>{_get_card_html("현금성 자산", f"₩{cash_asset:,.0f}", "", "#8b5cf6")}</div>
+<div>{_get_card_html("총 자산", f"₩{t_asset:,.0f}", "", "#3b82f6")}</div>
+</div>
+<div style="text-align: right; font-size: 0.8rem; color: #64748b; margin-bottom: 20px;">
+* 금액 기준은 평가액이 아닌, 원금 기준임
+</div>"""
+st.markdown(grid_html, unsafe_allow_html=True)
+
+draw_neon_divider()
+
+# ── 카테고리별 요약 카드 및 도넛 차트 ──────────────────────────────
 from utils.db import CATEGORIES, get_monthly_income, get_fixed_costs, get_utility_costs, get_other_incomes
 
 _cat_colors = ["#ff6b00", "#1b263b", "#3b82f6", "#94a3b8", "#f97316", "#475569"]
@@ -285,7 +307,7 @@ if _txns:
         else:
             return "<div style='margin-top:8px;display:inline-block;padding:3px 6px;border-radius:12px;background:#f8fafc;color:#94a3b8;font-size:clamp(0.65rem, 2vw, 0.75rem);font-weight:700;white-space:nowrap;'>- 변동 없음</div>"
 
-    # ── 변동지출 구성 도넛 차트 (최상단 배치) ──────────────────────────────
+    # ── 변동지출 구성 도넛 차트 (네모박스 바로 아래 배치) ──────────────────────────────
     _cat_for_pie = {k: v for k, v in _cat_sum.items() if v > 0}
     if _cat_for_pie:
         _fig_pie = px.pie(
@@ -342,30 +364,19 @@ if _txns:
     draw_neon_divider()
 
 
-# ── KPI 카드 (6개 네모박스 Grid - 아래로 이동) ──────────────────────────
-delta_str = "▲ 흑자" if net >= 0 else "▼ 적자"
-is_positive = "▲" in delta_str or "흑자" in delta_str
-delta_color = "#10b981" if is_positive else "#ef4444"
-
-grid_html = f"""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 10px;">
-<div>{_get_card_html("총 수입", f"₩{ti:,.0f}", "", "#ff6b00")}</div>
-<div>{_get_card_html("고정비", f"₩{tf:,.0f}", "", "#475569")}</div>
-<div>{_get_card_html("변동비", f"₩{tv + tu:,.0f}", "", "#94a3b8")}</div>
-</div>
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 5px;">
-<div>{_get_card_html("잔여금", f"₩{net:,.0f}", delta_str, "#1b263b", delta_color)}</div>
-<div>{_get_card_html("현금성 자산", f"₩{cash_asset:,.0f}", "", "#8b5cf6")}</div>
-<div>{_get_card_html("총 자산", f"₩{t_asset:,.0f}", "", "#3b82f6")}</div>
-</div>
-<div style="text-align: right; font-size: 0.8rem; color: #64748b; margin-bottom: 20px;">
-* 금액 기준은 평가액이 아닌, 원금 기준임
-</div>"""
-st.markdown(grid_html, unsafe_allow_html=True)
-
-draw_neon_divider()
-
 # ── 월별 가계부 사용 추이 그래프 (최하단 추가) ──────────────────────────────
 st.markdown("""
+<style>
+/* 모바일에서 Streamlit Selectbox 터치 시 가상 키보드가 팝업되지 않도록 설정 */
+div[data-testid="stSelectbox"] input {
+    pointer-events: none !important;
+    caret-color: transparent !important;
+    user-select: none !important;
+}
+div[data-testid="stSelectbox"] div[data-baseweb="select"] {
+    cursor: pointer !important;
+}
+</style>
 <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 12px; margin-top: 10px;">
     <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0 auto; text-align: center !important; width: 100%;">
         📈 월별 가계부 사용 추이
@@ -375,6 +386,19 @@ st.markdown("""
 
 trend_data = get_all_household_trends(start_year=2026, start_month=5)
 selected_cat = st.selectbox("📊 조회할 가계부 항목을 선택하세요", TREND_CATEGORIES, index=1)
+
+import streamlit.components.v1 as components
+components.html("""
+<script>
+const doc = window.parent.document;
+const inputs = doc.querySelectorAll('div[data-testid="stSelectbox"] input');
+inputs.forEach(input => {
+    input.setAttribute('readonly', 'true');
+    input.setAttribute('inputmode', 'none');
+    input.style.pointerEvents = 'none';
+});
+</script>
+""", height=0, width=0)
 
 trend_dates = [datetime(item["year"], item["month"], 1) for item in trend_data]
 trend_vals = [item["values"].get(selected_cat) for item in trend_data]
