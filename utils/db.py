@@ -484,3 +484,117 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
             y += 1
             
     return results
+
+
+TREND_CATEGORIES = ["총 수입", "총 지출", "고정비 총액", "변동비 총액", "공과금 총액", "잔여금(수입-지출)"] + CATEGORIES + ["전기요금", "수도요금", "가스요금"]
+
+def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> list:
+    client = get_supabase_client()
+    
+    # 1. 모든 월 데이터 한번에 조회
+    txns_res = client.table("transactions").select("*").execute()
+    inc_res = client.table("monthly_income").select("*").execute()
+    fixed_res = client.table("fixed_costs").select("*").execute()
+    util_res = client.table("utility_costs").select("*").execute()
+    
+    txns_by_m = {}
+    for t in (txns_res.data or []):
+        key = (t["year"], t["month"])
+        txns_by_m.setdefault(key, []).append(t)
+        
+    inc_by_m = { (r["year"], r["month"]): r for r in (inc_res.data or []) }
+    fixed_by_m = { (r["year"], r["month"]): r for r in (fixed_res.data or []) }
+    util_by_m = { (r["year"], r["month"]): r for r in (util_res.data or []) }
+    
+    latest_closed = None
+    try:
+        closed_dates = []
+        for inc in (inc_res.data or []):
+            cf = inc.get("confirmed_fields") or []
+            if any(k in cf for k in ["investments_closed", "expense_closed", "income_closed"]):
+                closed_dates.append((inc["year"], inc["month"]))
+        if closed_dates:
+            latest_closed = max(closed_dates)
+    except Exception as e:
+        print(f"Error checking closed dates: {e}")
+        
+    end_year, end_month = 2026, 9
+    results = []
+    y, m = start_year, start_month
+    while True:
+        key = (y, m)
+        if latest_closed and (y > latest_closed[0] or (y == latest_closed[0] and m > latest_closed[1])):
+            is_future = True
+        elif latest_closed is None and (y > datetime.now().year or (y == datetime.now().year and m > datetime.now().month)):
+            is_future = True
+        else:
+            is_future = False
+            
+        income = inc_by_m.get(key, {})
+        txns = txns_by_m.get(key, [])
+        fixed = fixed_by_m.get(key, {})
+        utility = util_by_m.get(key, {})
+        
+        other_inc_sum = sum(t.get("amount", 0) for t in txns if t.get("category") == "기타 수입")
+        total_income = ((income.get("junyoung_salary") or 0) + (income.get("junyoung_bonus") or 0) +
+                        (income.get("jiyun_salary") or 0)    + (income.get("jiyun_incentive") or 0) +
+                        other_inc_sum)
+                        
+        total_variable = sum(t.get("amount", 0) for t in txns if t.get("category") != "기타 수입")
+        total_fixed = sum((fixed.get(f) or 0) for f in FIXED_COST_LABELS)
+        total_utility = (utility.get("electricity") or 0) + (utility.get("water") or 0) + (utility.get("gas") or 0)
+        total_expense = total_fixed + total_utility + total_variable
+        net = total_income - total_expense
+        
+        vals = {}
+        if is_future:
+            vals["총 수입"] = None
+            vals["총 지출"] = None
+            vals["고정비 총액"] = None
+            vals["변동비 총액"] = None
+            vals["공과금 총액"] = None
+            vals["잔여금(수입-지출)"] = None
+            for cat in CATEGORIES:
+                vals[cat] = None
+            vals["전기요금"] = None
+            vals["수도요금"] = None
+            vals["가스요금"] = None
+            for flabel in FIXED_COST_LABELS.values():
+                vals[flabel] = None
+        else:
+            vals["총 수입"] = total_income
+            vals["총 지출"] = total_expense
+            vals["고정비 총액"] = total_fixed
+            vals["변동비 총액"] = total_variable
+            vals["공과금 총액"] = total_utility
+            vals["잔여금(수입-지출)"] = net
+            
+            cat_totals = {c: 0 for c in CATEGORIES}
+            for t in txns:
+                if t.get("category") in cat_totals:
+                    cat_totals[t["category"]] += (t.get("amount") or 0)
+            for cat, amt in cat_totals.items():
+                vals[cat] = amt
+                
+            vals["전기요금"] = utility.get("electricity") or 0
+            vals["수도요금"] = utility.get("water") or 0
+            vals["가스요금"] = utility.get("gas") or 0
+            
+            for fkey, flabel in FIXED_COST_LABELS.items():
+                vals[flabel] = fixed.get(fkey) or 0
+                
+        results.append({
+            "year": y,
+            "month": m,
+            "label": f"{str(y)[2:]}년 {m}월",
+            "values": vals
+        })
+        if y == end_year and m == end_month:
+            break
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+            
+    return results
+
