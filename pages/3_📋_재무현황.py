@@ -348,10 +348,16 @@ snack    = int(cat_sum.get("간식비",0))
 eating   = int(cat_sum.get("외식비",0))
 culture  = int(cat_sum.get("문화비",0))
 jy_lunch = int(cat_sum.get("준영점심",0))
+baby_food      = int(cat_sum.get("아가 식비",0))
+baby_necessity = int(cat_sum.get("아가 생필품비",0))
+baby_goods     = int(cat_sum.get("아가 용품/의류비",0))
+baby_medical   = int(cat_sum.get("아가 병원/의료비",0))
+baby_edu       = int(cat_sum.get("아가 활동/교육비",0))
+baby_total     = baby_food + baby_necessity + baby_goods + baby_medical + baby_edu
 medical  = int(cat_sum.get("의료비", 0)) # 의료비는 무조건 가계부 합산을 사용
 gift     = int(cat_sum.get("경조비",0)) # 경조비도 무조건 가계부 합산을 사용
 daily_total    = food + necessity + snack + eating + culture + jy_lunch
-total_variable = total_utility + daily_total + medical + gift
+total_variable = total_utility + daily_total + baby_total + medical + gift
 
 investable    = livable - total_variable
 actual_invest = sum(i.get("amount",0) for i in invs)
@@ -710,6 +716,14 @@ _row_readonly("간식비",    snack)
 _row_readonly("외식비",    eating)
 _row_readonly("문화비",    culture)
 _row_readonly("준영 점심", jy_lunch)
+st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
+
+_row_h2("베이비용 (가계부 자동연동)", baby_total, True)
+_row_readonly("아가 식비",       baby_food)
+_row_readonly("아가 생필품비",   baby_necessity)
+_row_readonly("아가 용품/의류비", baby_goods)
+_row_readonly("아가 병원/의료비", baby_medical)
+_row_readonly("아가 활동/교육비", baby_edu)
 st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
 
 _row_h2("의료비 (가계부 자동연동)", medical, True)

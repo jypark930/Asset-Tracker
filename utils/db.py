@@ -6,7 +6,7 @@ import streamlit as st
 from datetime import datetime, timezone
 from utils.auth import get_supabase_client, get_current_user, get_current_user_email
 
-CATEGORIES = ["외식비", "식비", "생필품비", "간식비", "준영점심", "의료비", "문화비", "경조비"]
+CATEGORIES = ["외식비", "식비", "생필품비", "간식비", "준영점심", "아가 식비", "아가 생필품비", "아가 용품/의류비", "아가 병원/의료비", "아가 활동/교육비", "의료비", "문화비", "경조비"]
 
 FIXED_COST_LABELS = {
     "loan_payment":       "대출 상환액",
