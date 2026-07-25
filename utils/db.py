@@ -506,26 +506,13 @@ def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> li
     fixed_by_m = { (r["year"], r["month"]): r for r in (fixed_res.data or []) }
     util_by_m = { (r["year"], r["month"]): r for r in (util_res.data or []) }
     
-    latest_closed = None
-    try:
-        closed_dates = []
-        for inc in (inc_res.data or []):
-            cf = inc.get("confirmed_fields") or []
-            if any(k in cf for k in ["investments_closed", "expense_closed", "income_closed"]):
-                closed_dates.append((inc["year"], inc["month"]))
-        if closed_dates:
-            latest_closed = max(closed_dates)
-    except Exception as e:
-        print(f"Error checking closed dates: {e}")
-        
+    now = datetime.now()
     end_year, end_month = 2026, 9
     results = []
     y, m = start_year, start_month
     while True:
         key = (y, m)
-        if latest_closed and (y > latest_closed[0] or (y == latest_closed[0] and m > latest_closed[1])):
-            is_future = True
-        elif latest_closed is None and (y > datetime.now().year or (y == datetime.now().year and m > datetime.now().month)):
+        if (y > now.year or (y == now.year and m > now.month)) and not txns_by_m.get(key) and not inc_by_m.get(key):
             is_future = True
         else:
             is_future = False
