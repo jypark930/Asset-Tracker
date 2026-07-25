@@ -512,7 +512,7 @@ def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> li
     y, m = start_year, start_month
     while True:
         key = (y, m)
-        if (y > now.year or (y == now.year and m > now.month)) and not txns_by_m.get(key) and not inc_by_m.get(key):
+        if y > now.year or (y == now.year and m > now.month):
             is_future = True
         else:
             is_future = False
