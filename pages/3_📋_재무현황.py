@@ -668,7 +668,7 @@ FIXED_TREE = [
     ]),
     ("구독 및 멤버십", subs, [
         ("쿠팡 와우","coupang",1000), ("유튜브","youtube",1000), ("네이버멤버십","naver",1000),
-        ("안티그래비티","antigravity",1000),
+        ("AI서비스","antigravity",1000),
     ]),
     ("저축액", savings, [
         ("준영 희망적금","junyoung_savings1",10000), ("준영 주택청약","junyoung_savings2",10000),
