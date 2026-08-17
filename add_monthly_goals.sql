@@ -1,6 +1,6 @@
 -- ============================================================
--- Asset Tracker - ø˘∫∞ ¿⁄ªÍ ∏Ò«• √ﬂ∞° ≈◊¿Ã∫Ì Ω∫≈∞∏∂
--- Supabase Dashboard -> SQL Editor ø°º≠ ∫πªÁ«œø© Ω««‡
+-- Asset Tracker - ÏõîÎ≥Ñ ÏûêÏÇ∞ Î™©Ìëú Ï∂îÍ∞Ä ÌÖåÏù¥Î∏î Ïä§ÌÇ§Îßà
+-- Supabase Dashboard -> SQL Editor ÏóêÏÑú Î≥µÏÇ¨ÌïòÏó¨ Ïã§Ìñâ
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS monthly_goals (
@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS monthly_goals (
   year          INT  NOT NULL,
   month         INT  NOT NULL,
   target_amount BIGINT DEFAULT 0,
+  cash_target_amount BIGINT DEFAULT 0,
   created_at    TIMESTAMPTZ DEFAULT now(),
   updated_at    TIMESTAMPTZ DEFAULT now(),
   UNIQUE(user_id, year, month)
