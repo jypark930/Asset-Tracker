@@ -32,7 +32,7 @@ FIXED_COST_LABELS = {
     "coupang":            "쿠팡 와우",
     "youtube":            "유튜브",
     "naver":              "네이버 멤버십",
-    "antigravity":        "안티그래비티",
+    "antigravity":        "AI서비스",
     "junyoung_savings1":  "준영 청년희망적금",
     "junyoung_savings2":  "준영 주택청약적금",
     "jiyun_savings1":     "지윤 청년희망적금",
