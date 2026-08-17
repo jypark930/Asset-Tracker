@@ -488,7 +488,7 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
     return results
 
 
-TREND_CATEGORIES = ["총 수입", "총 지출", "고정비 총액", "변동비 총액", "공과금 총액", "잔여금(수입-지출)"] + CATEGORIES + ["전기요금", "수도요금", "가스요금"]
+TREND_CATEGORIES = ["총 수입", "총 지출", "고정비 총액", "변동비 총액", "공과금 총액", "잔여금(수입-지출)"] + CATEGORIES + ["전기요금", "수도요금", "가스요금", "주민세"]
 
 def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> list:
     client = get_supabase_client()
@@ -548,6 +548,7 @@ def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> li
             vals["전기요금"] = None
             vals["수도요금"] = None
             vals["가스요금"] = None
+            vals["주민세"] = None
             for flabel in FIXED_COST_LABELS.values():
                 vals[flabel] = None
         else:
@@ -568,6 +569,7 @@ def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> li
             vals["전기요금"] = utility.get("electricity") or 0
             vals["수도요금"] = utility.get("water") or 0
             vals["가스요금"] = utility.get("gas") or 0
+            vals["주민세"] = utility.get("resident_tax") or 0
             
             for fkey, flabel in FIXED_COST_LABELS.items():
                 vals[flabel] = fixed.get(fkey) or 0
