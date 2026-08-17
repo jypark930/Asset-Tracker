@@ -13,6 +13,7 @@ FIXED_COST_LABELS = {
     "rent":               "빌라 월세",
     "maintenance_fee":    "빌라 관리비",
     "car_tax":            "차량세",
+    "car_wash":           "세차비",
     "car_insurance":      "차량 보험",
     "driver_insurance":   "운전자 보험",
     "health_insurance":   "실손 보험",
@@ -42,7 +43,8 @@ FIXED_COST_LABELS = {
 
 FIXED_COST_GROUPS = {
     "🏠 주거비":    ["loan_payment", "rent", "maintenance_fee"],
-    "🚗 차량/보험": ["car_tax", "car_insurance", "driver_insurance", "health_insurance", "cancer_insurance"],
+    "🛡️ 보험":      ["car_insurance", "driver_insurance", "health_insurance", "cancer_insurance"],
+    "🚗 차량유지비": ["car_tax", "car_wash"],
     "📱 통신비":    ["junyoung_phone", "jiyun_phone", "internet"],
     "🚌 교통비":    ["junyoung_transport", "jiyun_transport", "fuel", "hipass"],
     "💬 기타":      ["junyoung_club", "jiyun_club", "junyoung_parents", "jiyun_parents"],

@@ -323,14 +323,15 @@ jd_tot = jd_sal + jd_inc
 total_income = jy_tot + jd_tot + other_inc
 
 housing   = g(fixed,"loan_payment") + g(fixed,"rent") + g(fixed,"maintenance_fee")
-car_ins   = g(fixed,"car_insurance") + g(fixed,"driver_insurance") + g(fixed,"health_insurance") + g(fixed,"cancer_insurance")
+insurance = g(fixed,"car_insurance") + g(fixed,"driver_insurance") + g(fixed,"health_insurance") + g(fixed,"cancer_insurance")
+car_maint = g(fixed,"car_tax") + g(fixed,"car_wash")
 telecom   = g(fixed,"junyoung_phone") + g(fixed,"jiyun_phone") + g(fixed,"internet")
 transport = g(fixed,"junyoung_transport") + g(fixed,"jiyun_transport") + g(fixed,"fuel") + g(fixed,"hipass")
 misc      = g(fixed,"junyoung_club") + g(fixed,"jiyun_club") + g(fixed,"junyoung_parents") + g(fixed,"jiyun_parents")
 subs      = g(fixed,"coupang") + g(fixed,"youtube") + g(fixed,"naver") + g(fixed,"antigravity")
 savings   = g(fixed,"junyoung_savings1") + g(fixed,"junyoung_savings2") + g(fixed,"jiyun_savings1") + g(fixed,"jiyun_savings2")
 allowance = g(fixed,"junyoung_allowance") + g(fixed,"jiyun_allowance")
-total_fixed = housing + g(fixed,"car_tax") + car_ins + telecom + transport + misc + subs + savings + allowance
+total_fixed = housing + insurance + car_maint + telecom + transport + misc + subs + savings + allowance
 
 livable = total_income - total_fixed
 
@@ -647,10 +648,12 @@ FIXED_TREE = [
     ("주거비용", housing, [
         ("주담대 원리금","loan_payment",10000), ("관리비","maintenance_fee",10000), ("월세","rent",10000),
     ]),
-    ("차량유지비", car_ins + g(fixed,"car_tax"), [
+    ("보험", insurance, [
         ("자동차 보험","car_insurance",10000), ("운전자 보험","driver_insurance",10000),
         ("실비/건강보험","health_insurance",10000), ("암보험","cancer_insurance",10000),
-        ("자동차세","car_tax",10000),
+    ]),
+    ("차량유지비", car_maint, [
+        ("자동차세","car_tax",10000), ("세차비","car_wash",10000),
     ]),
     ("통신비", telecom, [
         ("준영 휴대폰","junyoung_phone",1000), ("지윤 휴대폰","jiyun_phone",1000), ("인터넷/TV","internet",1000),
