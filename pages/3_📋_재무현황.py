@@ -335,8 +335,8 @@ total_fixed = housing + insurance + car_maint + telecom + transport + misc + sub
 
 livable = total_income - total_fixed
 
-elec = g(util,"electricity"); water = g(util,"water"); gas_v = g(util,"gas")
-total_utility = elec + water + gas_v
+elec = g(util,"electricity"); water = g(util,"water"); gas_v = g(util,"gas"); resident_tax = g(util,"resident_tax")
+total_utility = elec + water + gas_v + resident_tax
 
 cat_sum = {}
 for t in txns:
@@ -704,11 +704,12 @@ _row_h1(
     meta_when(util_raw, bool(util_cf))
 )
 
-util_keys = set(["electricity", "water", "gas"])
+util_keys = set(["electricity", "water", "gas", "resident_tax"])
 _row_h2("공과금", total_utility, util_keys.issubset(set(util_cf)))
 _row_item("전기세", elec,  "electricity" in util_cf, "electricity", util, util_cf, upsert_utility_costs, 1000)
 _row_item("수도세", water, "water"       in util_cf, "water",       util, util_cf, upsert_utility_costs, 1000)
 _row_item("가스비", gas_v, "gas"         in util_cf, "gas",         util, util_cf, upsert_utility_costs, 1000)
+_row_item("주민세", resident_tax, "resident_tax" in util_cf, "resident_tax", util, util_cf, upsert_utility_costs, 1000)
 
 # 생활지출
 util_daily_keys = set(["living", "snack", "eating", "culture", "jy_lunch"])
