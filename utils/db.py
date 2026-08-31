@@ -18,6 +18,7 @@ FIXED_COST_LABELS = {
     "driver_insurance":   "운전자 보험",
     "health_insurance":   "실손 보험",
     "cancer_insurance":   "암 보험",
+    "fetal_insurance":    "태아 보험",
     "junyoung_phone":     "준영 통신비",
     "jiyun_phone":        "지윤 통신비",
     "internet":           "인터넷 비용",
@@ -43,7 +44,7 @@ FIXED_COST_LABELS = {
 
 FIXED_COST_GROUPS = {
     "🏠 주거비":    ["loan_payment", "rent", "maintenance_fee"],
-    "🛡️ 보험":      ["car_insurance", "driver_insurance", "health_insurance", "cancer_insurance"],
+    "🛡️ 보험":      ["car_insurance", "driver_insurance", "health_insurance", "cancer_insurance", "fetal_insurance"],
     "🚗 차량유지비": ["car_tax", "car_wash"],
     "📱 통신비":    ["junyoung_phone", "jiyun_phone", "internet"],
     "🚌 교통비":    ["junyoung_transport", "jiyun_transport", "fuel", "hipass"],

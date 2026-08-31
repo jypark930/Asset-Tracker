@@ -323,7 +323,7 @@ jd_tot = jd_sal + jd_inc
 total_income = jy_tot + jd_tot + other_inc
 
 housing   = g(fixed,"loan_payment") + g(fixed,"rent") + g(fixed,"maintenance_fee")
-insurance = g(fixed,"car_insurance") + g(fixed,"driver_insurance") + g(fixed,"health_insurance") + g(fixed,"cancer_insurance")
+insurance = g(fixed,"car_insurance") + g(fixed,"driver_insurance") + g(fixed,"health_insurance") + g(fixed,"cancer_insurance") + g(fixed,"fetal_insurance")
 car_maint = g(fixed,"car_tax") + g(fixed,"car_wash")
 telecom   = g(fixed,"junyoung_phone") + g(fixed,"jiyun_phone") + g(fixed,"internet")
 transport = g(fixed,"junyoung_transport") + g(fixed,"jiyun_transport") + g(fixed,"fuel") + g(fixed,"hipass")
@@ -651,6 +651,7 @@ FIXED_TREE = [
     ("보험", insurance, [
         ("자동차 보험","car_insurance",10000), ("운전자 보험","driver_insurance",10000),
         ("실비/건강보험","health_insurance",10000), ("암보험","cancer_insurance",10000),
+        ("태아보험","fetal_insurance",10000),
     ]),
     ("차량유지비", car_maint, [
         ("자동차세","car_tax",10000), ("세차비","car_wash",10000),
