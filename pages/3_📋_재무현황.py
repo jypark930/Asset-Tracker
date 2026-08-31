@@ -651,7 +651,7 @@ FIXED_TREE = [
     ("보험", insurance, [
         ("자동차 보험","car_insurance",10000), ("운전자 보험","driver_insurance",10000),
         ("실비/건강보험","health_insurance",10000), ("암보험","cancer_insurance",10000),
-        ("태아보험","fetal_insurance",10000),
+        ("태아/어린이 보험","fetal_insurance",10000),
     ]),
     ("차량유지비", car_maint, [
         ("자동차세","car_tax",10000), ("세차비","car_wash",10000),

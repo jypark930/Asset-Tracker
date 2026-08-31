@@ -18,7 +18,7 @@ FIXED_COST_LABELS = {
     "driver_insurance":   "운전자 보험",
     "health_insurance":   "실손 보험",
     "cancer_insurance":   "암 보험",
-    "fetal_insurance":    "태아 보험",
+    "fetal_insurance":    "태아/어린이 보험",
     "junyoung_phone":     "준영 통신비",
     "jiyun_phone":        "지윤 통신비",
     "internet":           "인터넷 비용",
