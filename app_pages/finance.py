@@ -6,7 +6,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime, timedelta, timezone
 
-st.set_page_config(page_title="재무현황 | Asset Tracker", page_icon="📋", layout="wide")
 
 from utils.auth import (
     is_authenticated, try_restore_session,
@@ -20,12 +19,9 @@ from utils.db import (
     get_other_incomes, insert_transaction, delete_transaction
 )
 
-if not is_authenticated():
-    if not try_restore_session():
-        st.warning("🔒 로그인이 필요합니다.")
-        st.switch_page("0_🏠_홈.py")
+from utils.ui import page_header, now_kst
 
-now = datetime.now()
+now = now_kst()
 
 def draw_neon_divider():
     st.markdown('<hr style="height:1px;border:none;background:#e2e8f0;margin:16px 0;">', unsafe_allow_html=True)
@@ -219,49 +215,7 @@ def _get_card_html(title: str, value: str, delta: str = "", border_color: str = 
 {delta_html}
 </div>"""
 
-# ── 커스텀 타이틀 ─────────────────────────
-st.markdown("""
-<div style="width:100%;display:flex;justify-content:center;margin-bottom:4px;margin-top:10px;">
-    <h1 style="font-size:1.8rem;font-weight:800;color:#1e293b;margin:0 auto;text-align:center !important;width:100%;">
-        재무 현황
-    </h1>
-</div>
-""", unsafe_allow_html=True)
-st.caption("항목별 수정 가능 | 미입력 항목은 전월 데이터 자동 적용 후 (미확정) 표시")
-
-
-# ── 월 선택 (◄ ► 네비게이션) ────────────────────────
-if "global_year" not in st.session_state:
-    st.session_state.global_year = now.year
-if "global_month" not in st.session_state:
-    st.session_state.global_month = now.month
-
-def fin_prev_month():
-    if st.session_state.global_month == 1:
-        st.session_state.global_month = 12
-        st.session_state.global_year -= 1
-    else:
-        st.session_state.global_month -= 1
-
-def fin_next_month():
-    if st.session_state.global_month == 12:
-        st.session_state.global_month = 1
-        st.session_state.global_year += 1
-    else:
-        st.session_state.global_month += 1
-
-year  = st.session_state.global_year
-month = st.session_state.global_month
-
-nav_container = st.container()
-with nav_container:
-    st.button("◀", on_click=fin_prev_month, key="fin_prev_btn")
-    st.markdown(f"""
-    <div id="month-nav-marker" style='display: flex; align-items: center; justify-content: center; height: 42px; width: 140px; font-size: 1.2rem; font-weight: 700; color: #1e293b; margin: 0 auto;'>
-        <span style="transform: translateY(-4px);">{year}년 {month}월</span>
-    </div>
-    """, unsafe_allow_html=True)
-    st.button("▶", on_click=fin_next_month, key="fin_next_btn")
+year, month = page_header("재무현황", "항목을 누르면 고칠 수 있어요 · 입력 안 한 항목은 전월 값을 (미확정)으로 보여 줍니다")
 
 prev_month = month - 1 if month > 1 else 12
 prev_year  = year  if month > 1 else year - 1
@@ -290,7 +244,9 @@ def merge_data(curr_raw: dict, prev_raw: dict) -> tuple[dict, list]:
     for k in all_keys:
         if k in ("id", "year", "month", "user_id", "updated_by", "updated_at", "created_at", "confirmed_fields"):
             continue
-        if k in cf:
+        # 확정 항목이거나, 이번 달 행에 저장된 값이 있으면 이번 달 값을 쓴다 (B3).
+        # 이번 달 행이 없거나 값이 비어 있을 때만 전월 값을 예상치로 가져온다.
+        if k in cf or (curr and curr.get(k) is not None):
             res[k] = curr.get(k, 0)
         else:
             res[k] = prev.get(k, 0)
@@ -484,13 +440,13 @@ def _edit_form(label: str, val: int, confirmed: bool, field_key: str, section_da
     st.write("")
     col_save, col_conf = st.columns(2)
     with col_save:
-        if st.button("💾 저장", key=f"dlg_save_{field_key}", use_container_width=True, type="primary"):
+        if st.button("💾 저장", key=f"dlg_save_{field_key}", width="stretch", type="primary"):
             section_data[field_key] = new_val
             if upsert_fn(year, month, section_data, cf_list):
                 st.rerun()
     with col_conf:
         if not confirmed:
-            if st.button("✅ 확정", key=f"dlg_conf_{field_key}", use_container_width=True):
+            if st.button("✅ 확정", key=f"dlg_conf_{field_key}", width="stretch"):
                 section_data[field_key] = int(new_val or 0)
                 if field_key not in cf_list:
                     cf_list.append(field_key)
@@ -499,7 +455,7 @@ def _edit_form(label: str, val: int, confirmed: bool, field_key: str, section_da
                     play_notice_sound()
                     st.rerun()
         else:
-            st.button("✔️ 확정 완료", key=f"dlg_conf_done_{field_key}", disabled=True, use_container_width=True)
+            st.button("✔️ 확정 완료", key=f"dlg_conf_done_{field_key}", disabled=True, width="stretch")
 
 
 def _row_item(label: str, val: int, confirmed: bool, field_key: str, section_data: dict, cf_list: list, upsert_fn, step: int = 10000):
@@ -545,14 +501,14 @@ def _save_btn(section_key: str, label: str):
     sc, _ = st.columns([2, 8])
     with sc:
         return st.button(f"💾 {label} 저장", key=f"save_{section_key}",
-                         type="primary", use_container_width=True)
+                         type="primary", width="stretch")
 
 def _save_success(section_key: str):
     from utils.audio import play_notice_sound
     play_notice_sound()
     email = get_current_user_email()
     name  = EMAIL_TO_NAME.get(email, email)
-    ts    = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
+    ts    = now_kst().strftime("%Y년 %m월 %d일 %H시 %M분")
     st.success(f"✅ {name} 수정 • {ts}")
     st.session_state[f"edit_{section_key}"] = False
     st.rerun()
@@ -585,7 +541,7 @@ def _other_income_item(year: int, month: int, other_incomes: list):
                 with col2:
                     st.markdown(f"<span style='font-size:0.9rem; font-weight:700; color:#1e293b;'>₩{inc.get('amount', 0):,}</span>", unsafe_allow_html=True)
                 with col3:
-                    if st.button("삭제", key=f"del_other_{inc['id']}", use_container_width=True):
+                    if st.button("삭제", key=f"del_other_{inc['id']}", width="stretch"):
                         delete_transaction(inc['id'])
                         st.rerun()
         
@@ -596,7 +552,7 @@ def _other_income_item(year: int, month: int, other_incomes: list):
             st.markdown("<span style='font-size:0.8rem; font-weight:600; color:#64748b;'>새 기타 수입 추가</span>", unsafe_allow_html=True)
             new_desc = st.text_input("내용", placeholder="예: 당근마켓 판매, 명절 용돈 등", label_visibility="collapsed")
             new_amt = st.number_input("금액 (₩)", min_value=0, step=1000, label_visibility="collapsed")
-            if st.form_submit_button("추가", use_container_width=True):
+            if st.form_submit_button("추가", width="stretch"):
                 if not new_desc:
                     st.error("내용을 입력해주세요.")
                 elif new_amt <= 0:

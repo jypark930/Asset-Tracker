@@ -8,7 +8,6 @@ import pandas as pd
 from datetime import datetime
 import time
 
-st.set_page_config(page_title="투자현황 | Asset Tracker", page_icon="📈", layout="wide")
 
 from utils.auth import is_authenticated, try_restore_session, get_current_user
 from utils.db import INVESTMENT_ACCOUNTS, get_investments, upsert_investment, get_monthly_income, upsert_monthly_income, get_all_investment_stocks, replace_investment_stocks, copy_previous_month_investments
@@ -41,22 +40,10 @@ CUSTOM_SORT_ORDER = [
 ]
 
 
-if not is_authenticated():
-    if not try_restore_session():
-        st.warning("🔒 로그인이 필요합니다.")
-        st.switch_page("0_🏠_홈.py")
+from utils.ui import page_header, now_kst
 
-now = datetime.now()
+now = now_kst()
 
-
-# ── 커스텀 타이틀 ─────────────────────────
-st.markdown("""
-<div style="width:100%;display:flex;justify-content:center;margin-bottom:4px;margin-top:10px;">
-    <h1 style="font-size:1.8rem;font-weight:800;color:#1e293b;margin:0 auto;text-align:center !important;width:100%;">
-        투자 현황
-    </h1>
-</div>
-""", unsafe_allow_html=True)
 
 def _get_card_html(title: str, value: str, delta: str = "", border_color: str = "#ff6b00", delta_color: str = "#10b981"):
     delta_html = f"<div style='font-size: clamp(0.65rem, 2.5vw, 0.8rem);font-weight:600;color:{delta_color};margin-top:4px;white-space:nowrap;'>{delta}</div>" if delta else ""
@@ -70,43 +57,12 @@ def _get_card_html(title: str, value: str, delta: str = "", border_color: str = 
 def draw_light_divider():
     st.markdown('<hr style="height:1px;border:none;background:#e2e8f0;margin:16px 0;">', unsafe_allow_html=True)
 
-# ── 월 선택 (◄ ► 네비게이션) ────────────────────────
-if "global_year" not in st.session_state:
-    st.session_state.global_year = now.year
-if "global_month" not in st.session_state:
-    st.session_state.global_month = now.month
-
-def inv_prev_month():
-    if st.session_state.global_month == 1:
-        st.session_state.global_month = 12
-        st.session_state.global_year -= 1
-    else:
-        st.session_state.global_month -= 1
-
-def inv_next_month():
-    if st.session_state.global_month == 12:
-        st.session_state.global_month = 1
-        st.session_state.global_year += 1
-    else:
-        st.session_state.global_month += 1
-
-year  = st.session_state.global_year
-month = st.session_state.global_month
-
-nav_container = st.container()
-with nav_container:
-    st.button("◀", on_click=inv_prev_month, key="inv_prev_btn")
-    st.markdown(f"""
-    <div id="month-nav-marker" style='display: flex; align-items: center; justify-content: center; height: 42px; width: 140px; font-size: 1.2rem; font-weight: 700; color: #1e293b; margin: 0 auto;'>
-        <span style="transform: translateY(-4px);">{year}년 {month}월</span>
-    </div>
-    """, unsafe_allow_html=True)
-    st.button("▶", on_click=inv_next_month, key="inv_next_btn")
+year, month = page_header("투자현황")
 
 is_past_month    = (year < now.year) or (year == now.year and month < now.month)
 is_current_month = (year == now.year and month == now.month)
 inc = get_monthly_income(year, month)
-confirmed_fields = inc.get("confirmed_fields", []) if inc and "confirmed_fields" in inc else []
+confirmed_fields = (inc.get("confirmed_fields") or []) if inc else []  # NULL 도 빈 목록으로 (B13)
 is_closed = "investments_closed" in confirmed_fields
 
 if is_past_month:
@@ -128,7 +84,9 @@ if is_past_month:
 draw_light_divider()
 
 # ── 데이터 로드 및 집계 ───────────────────────────────────────────
-if copy_previous_month_investments(year, month):
+# 미래 달을 넘겨 보기만 해도 전월 계좌가 복사되던 문제(B4) 때문에 이번 달까지만 복사한다.
+is_future_month = (year, month) > (now.year, now.month)
+if not is_future_month and copy_previous_month_investments(year, month):
     st.toast("전월 투자 자산 및 상세 종목 내역을 성공적으로 복사해 왔습니다! 🚀", icon="✅")
 
 invests = get_investments(year, month)
@@ -375,7 +333,7 @@ if invests and total_data["tot_p"] > 0:
             ))
             fig.update_traces(marker=dict(line=dict(color='#ffffff', width=3)))
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="#475569", height=280, margin=dict(l=0, r=0, t=10, b=0), showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             
         with c2:
             st.markdown(f"""
@@ -593,7 +551,7 @@ def _render_stock_editor(owner: str, sel_acc: str):
         pd.DataFrame(st.session_state[data_key]),
         key=editor_key,
         num_rows="dynamic",
-        use_container_width=True,
+        width="stretch",
         column_config={
             "종목명":  st.column_config.TextColumn("종목명 (계좌명 등)", width="medium"),
             "원금":    st.column_config.NumberColumn("원금(₩)", format="%d"),
@@ -603,7 +561,7 @@ def _render_stock_editor(owner: str, sel_acc: str):
         disabled=["평가액"] if not is_closed else True,
     )
 
-    if st.button("💾 저장", key=f"save_stocks_{owner}_{sel_acc}", use_container_width=True, disabled=is_closed):
+    if st.button("💾 저장", key=f"save_stocks_{owner}_{sel_acc}", width="stretch", disabled=is_closed):
         rows = edited_df.to_dict("records")
         stocks_to_save = []
         tot_p, tot_a = 0, 0
@@ -628,7 +586,25 @@ def _render_stock_editor(owner: str, sel_acc: str):
                 "valuation": val,
             })
 
-        if stocks_to_save:
+        # B1: 화면에 안 보이는 행(예수금 등)은 그대로 보존하고 합계에도 넣는다.
+        #     이름이 같고 금액이 그대로인 종목은 수량·평단·현재가를 유지한다.
+        all_rows = inv_stocks_map.get(inv["id"], []) if inv else []
+        hidden = [s for s in all_rows if s.get("stock_name", "") in SKIP_STOCK_NAMES]
+        old_by_name = {s.get("stock_name", ""): s for s in all_rows
+                       if s.get("stock_name", "") not in SKIP_STOCK_NAMES}
+        for ns in stocks_to_save:
+            os_ = old_by_name.get(ns["stock_name"])
+            if os_ and int(os_.get("principal", 0) or 0) == ns["principal"]                     and int(os_.get("valuation", 0) or 0) == ns["valuation"]:
+                for f in ("quantity", "average_price", "current_price"):
+                    ns[f] = os_.get(f, 0) or 0
+        for h in hidden:
+            keep = {k: v for k, v in h.items()
+                    if k not in ("id", "investment_id", "created_at", "updated_at")}
+            stocks_to_save.append(keep)
+            tot_p += int(h.get("principal", 0) or 0)
+            tot_a += int(h.get("valuation", 0) or 0)
+
+        if any(s["stock_name"] not in SKIP_STOCK_NAMES for s in stocks_to_save):
             upsert_investment(year, month, owner, sel_acc, tot_p, tot_a)
             invs_after = get_investments(year, month)
             inv_id = next(
@@ -655,7 +631,7 @@ def _render_principal_editor(owner: str, sel_acc: str):
         key=f"prin_{owner}_{sel_acc}", disabled=is_closed, format="%d"
     )
     if st.button("💾 저장", key=f"save_prin_{owner}_{sel_acc}",
-                 use_container_width=True, type="primary", disabled=is_closed):
+                 width="stretch", type="primary", disabled=is_closed):
         upsert_investment(year, month, owner, sel_acc, new_p, new_p)
         st.success(f"✅ {owner} / {sel_acc} 원금이 {new_p:,}원으로 저장되었습니다!")
         st.rerun()

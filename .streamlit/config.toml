@@ -1,14 +1,24 @@
+[[theme.fontFaces]]
+family = "KoPub"
+url = "app/static/fonts/kopub_dotum_bold.ttf"
+weight = "100 900"
+
 [theme]
 base = "light"
 primaryColor = "#ff6b00"
 backgroundColor = "#f4f5f7"
 secondaryBackgroundColor = "#ffffff"
 textColor = "#1e293b"
-font = "sans serif"
+font = "KoPub, -apple-system, BlinkMacSystemFont, sans-serif"
+baseRadius = "medium"
+borderColor = "#e2e8f0"
+showWidgetBorder = true
 
 [server]
 headless = true
 runOnSave = true
 enableStaticServing = true
+
 [client]
 showErrorDetails = true
+toolbarMode = "minimal"

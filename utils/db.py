@@ -5,6 +5,7 @@ Supabase DB CRUD 유틸리티 - 엑셀 구조 기반
 import streamlit as st
 from datetime import datetime, timezone
 from utils.auth import get_supabase_client, get_current_user, get_current_user_email
+from utils.ui import now_kst
 
 CATEGORIES = ["외식비", "식비", "생필품비", "간식비", "준영점심", "아가 식비", "아가 생필품비", "아가 용품/의류비", "아가 병원/의료비", "아가 활동/교육비", "의료비", "문화비", "경조비"]
 
@@ -158,7 +159,7 @@ def get_fixed_costs(year: int, month: int) -> dict:
 
 def upsert_fixed_costs(year: int, month: int, data: dict, confirmed_fields: list = None) -> bool:
     try:
-        existing = get_monthly_income(year, month)
+        existing = get_fixed_costs(year, month)
         owner_id = existing.get("user_id", _uid()) if existing else _uid()
         data.update({
             "user_id":    owner_id,
@@ -233,6 +234,14 @@ def upsert_investment(year: int, month: int, owner: str, account_type: str, prin
 
 # ─── Dashboard Summary ────────────────────────────────────
 
+UTILITY_FIELDS = ["electricity", "water", "gas", "resident_tax"]
+
+
+def _utility_total(utility: dict) -> int:
+    """공과금 합계. 주민세 포함 (B6: 예전 대시보드는 주민세를 빼서 재무현황과 금액이 달랐다)"""
+    return sum((utility.get(f) or 0) for f in UTILITY_FIELDS)
+
+
 def get_monthly_summary(year: int, month: int) -> dict:
     income   = get_monthly_income(year, month)
     txns     = get_transactions(year, month)
@@ -253,7 +262,7 @@ def get_monthly_summary(year: int, month: int) -> dict:
         category_totals[cat] = category_totals.get(cat, 0) + (t.get("amount") or 0)
 
     total_fixed = sum((fixed.get(f) or 0) for f in FIXED_COST_LABELS)
-    total_utility = (utility.get("electricity") or 0) + (utility.get("water") or 0) + (utility.get("gas") or 0)
+    total_utility = _utility_total(utility)
     total_expense = total_fixed + total_utility + total_variable
     total_investment = sum((inv.get("amount") or 0) for inv in invests)
     total_principal = sum((inv.get("principal") or 0) for inv in invests)
@@ -294,15 +303,18 @@ def get_all_investment_stocks(investment_ids: list) -> list:
         return []
 
 def replace_investment_stocks(investment_id: str, stocks: list) -> bool:
+    """종목 목록 교체. 새 행을 먼저 넣고 성공하면 옛 행을 지운다 (넣기 실패 때 기존 행 보존)."""
     client = get_supabase_client()
     try:
-        # 먼저 기존 종목 모두 삭제
-        client.table("investment_stocks").delete().eq("investment_id", investment_id).execute()
-        # 새로운 종목들 삽입
+        old_ids = [r["id"] for r in (client.table("investment_stocks").select("id")
+                   .eq("investment_id", investment_id).execute().data or []) if r.get("id")]
         if stocks:
-            for s in stocks:
-                s["investment_id"] = investment_id
-            client.table("investment_stocks").insert(stocks).execute()
+            rows = [{**s, "investment_id": investment_id} for s in stocks]
+            for r in rows:
+                r.pop("id", None)
+            client.table("investment_stocks").insert(rows).execute()
+        if old_ids:
+            client.table("investment_stocks").delete().in_("id", old_ids).execute()
         return True
     except Exception as e:
         st.error(f"종목 저장 실패: {e}")
@@ -369,12 +381,14 @@ def get_monthly_goal(year: int, month: int) -> dict:
         print(f"Error fetching monthly goal: {e}")
         return {}
 
-def upsert_monthly_goal(year: int, month: int, target_amount: int, cash_target_amount: int = 0) -> bool:
+def upsert_monthly_goal(year: int, month: int, target_amount: int, cash_target_amount: int | None = None) -> bool:
     try:
-        get_supabase_client().table("monthly_goals").upsert({
-            "user_id": _uid(), "year": year, "month": month, 
-            "target_amount": target_amount, "cash_target_amount": cash_target_amount
-        }, on_conflict="user_id,year,month").execute()
+        row = {"user_id": _uid(), "year": year, "month": month, "target_amount": target_amount}
+        # 값을 받지 않았으면 보내지 않는다. 보내면 기존 cash_target_amount 를 0 으로 덮어쓴다 (B16).
+        if cash_target_amount is not None:
+            row["cash_target_amount"] = cash_target_amount
+        get_supabase_client().table("monthly_goals").upsert(
+            row, on_conflict="user_id,year,month").execute()
         return True
     except Exception as e:
         st.error(f"목표 저장 실패: {e}")
@@ -456,7 +470,9 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
     except Exception as e:
         print(f"Error fetching closed dates: {e}")
 
-    end_year, end_month = 2026, 9
+    # 끝 달: 이번 달, 목표가 있는 마지막 달, 투자 기록이 있는 마지막 달 중 가장 늦은 달 (B2: 예전엔 2026-09 고정)
+    _n = now_kst()
+    end_year, end_month = max([(_n.year, _n.month)] + list(goals_dict.keys()) + list(inv_dict.keys()))
 
     results = []
     y, m = start_year, start_month
@@ -510,8 +526,9 @@ def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> li
     fixed_by_m = { (r["year"], r["month"]): r for r in (fixed_res.data or []) }
     util_by_m = { (r["year"], r["month"]): r for r in (util_res.data or []) }
     
-    now = datetime.now()
-    end_year, end_month = 2026, 9
+    now = now_kst()
+    # 끝 달: 이번 달까지 (B2: 예전엔 2026-09 고정이라 10월부터 추이가 안 나왔다)
+    end_year, end_month = now.year, now.month
     results = []
     y, m = start_year, start_month
     while True:
@@ -533,7 +550,7 @@ def get_all_household_trends(start_year: int = 2026, start_month: int = 5) -> li
                         
         total_variable = sum(t.get("amount", 0) for t in txns if t.get("category") != "기타 수입")
         total_fixed = sum((fixed.get(f) or 0) for f in FIXED_COST_LABELS)
-        total_utility = (utility.get("electricity") or 0) + (utility.get("water") or 0) + (utility.get("gas") or 0)
+        total_utility = _utility_total(utility)
         total_expense = total_fixed + total_utility + total_variable
         net = total_income - total_expense
         
