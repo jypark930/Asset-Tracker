@@ -17,7 +17,7 @@ _email = user.email if user else ""
 _name = EMAIL_TO_NAME.get(_email, _email)
 
 # ── 계정 ────────────────────────────────────────────────
-with st.container(border=True):
+with st.container(border=True, key="glass_settings_1"):
     st.markdown("#### :material/person: 계정")
     c1, c2 = st.columns(2)
     c1.text_input("이름", value=_name, disabled=True)
@@ -34,7 +34,7 @@ with st.container(border=True):
         st.rerun()
 
 # ── 월별 목표 ────────────────────────────────────────────
-with st.container(border=True):
+with st.container(border=True, key="glass_settings_2"):
     st.markdown("#### :material/flag: 월별 현금성 자산 목표")
     st.caption("대시보드의 목표 달성률에 쓰입니다. 목표는 계정마다 따로 저장됩니다.")
 
@@ -60,7 +60,7 @@ with st.container(border=True):
             "월": st.column_config.TextColumn("월", disabled=True, width="small"),
             "목표 (원)": st.column_config.NumberColumn("목표 (원)", min_value=0, format="localized", step=10000),
         },
-        key=f"goals_editor_{target_year}",
+        key=f"goals_editor_{target_year}", height=40 + 35 * len(df),
     )
 
     def _to_int(v) -> int:

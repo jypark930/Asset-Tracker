@@ -4,15 +4,22 @@ url = "app/static/fonts/kopub_dotum_bold.ttf"
 weight = "100 900"
 
 [theme]
-base = "light"
-primaryColor = "#ff6b00"
-backgroundColor = "#f4f5f7"
-secondaryBackgroundColor = "#ffffff"
-textColor = "#1e293b"
+base = "dark"
+primaryColor = "#3b82f6"
+backgroundColor = "#1a191c"
+secondaryBackgroundColor = "#2a292e"
+textColor = "#ececf1"
 font = "KoPub, -apple-system, BlinkMacSystemFont, sans-serif"
-baseRadius = "medium"
-borderColor = "#e2e8f0"
+baseRadius = "16px"
+buttonRadius = "full"
+borderColor = "#3a393f"
 showWidgetBorder = true
+greenColor = "#34d399"
+redColor = "#f87171"
+blueColor = "#60a5fa"
+chartCategoricalColors = ["#60a5fa", "#34d399", "#f472b6", "#a78bfa", "#fbbf24", "#f87171", "#94a3b8"]
+dataframeBorderColor = "#333238"
+dataframeHeaderBackgroundColor = "#2a292e"
 
 [server]
 headless = true

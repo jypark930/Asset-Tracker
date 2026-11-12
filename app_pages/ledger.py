@@ -10,7 +10,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from utils.db import CATEGORIES, get_transactions, insert_transaction, update_transaction, delete_transaction
-from utils.ui import page_header, now_kst, won, won_short, flash
+from utils.ui import page_header, now_kst, prev_of, won, won_short, flash, kpi_card, kpi_grid, delta_text
 
 year, month = page_header("가계부")
 today = now_kst()
@@ -41,8 +41,31 @@ def _parse_amount(text: str) -> int:
         return 0
 
 
+# ── 이번 달 요약 ─────────────────────────────────────────
+days_passed = today.day if (year, month) == (today.year, today.month) else max_day
+if (year, month) > (today.year, today.month):
+    days_passed = 0
+py, pm = prev_of(year, month)
+prev_txns = get_transactions(py, pm)
+same_day = days_passed if (year, month) == (today.year, today.month) else 31
+prev_same = sum(t["amount"] for t in prev_txns if t["day"] <= same_day)
+cmp_label = "지난달 같은 날까지" if (year, month) == (today.year, today.month) else "지난달 전체"
+cd, cc = delta_text(total, prev_same)
+cat_tot = {}
+for t in txns:
+    cat_tot[t["category"]] = cat_tot.get(t["category"], 0) + t["amount"]
+top_cat = max(cat_tot.items(), key=lambda x: x[1]) if cat_tot else None
+kpi_grid([
+    kpi_card(f"{month}월 변동지출", won(total), f"{len(txns)}건", highlight=True),
+    kpi_card("하루 평균", won(total // days_passed) if days_passed else "-",
+             f"{days_passed}일 기준" if days_passed else ""),
+    kpi_card(cmp_label, won(prev_same), cd.replace("전월 대비", "이번 달"), cc),
+])
+
+col_in, col_cal = st.columns([2, 3], gap="medium")
+
 # ── 빠른 입력 ────────────────────────────────────────────
-with st.container(border=True):
+with col_in, st.container(border=True, key="glass_ledger_1", height="stretch"):
     st.markdown("#### :material/add_circle: 지출 입력")
     default_day = st.session_state.get(
         f"last_day_{year}_{month}",
@@ -71,15 +94,6 @@ with st.container(border=True):
             flash(f"{int(f_day)}일 {f_cat} {won(f_amt)} 저장했습니다.")
             st.rerun()
 
-# ── 이번 달 합계 ─────────────────────────────────────────
-c1, c2 = st.columns(2)
-c1.metric(f"{month}월 변동지출", won(total), border=True)
-days_passed = today.day if (year, month) == (today.year, today.month) else max_day
-if (year, month) > (today.year, today.month):
-    days_passed = 0
-c2.metric("하루 평균", won(total // days_passed) if days_passed else "-",
-          help="이번 달은 오늘까지 지난 날짜로 나눈 값", border=True)
-
 # ── 달력 ────────────────────────────────────────────────
 day_sum, day_items = {}, {}
 for t in txns:
@@ -91,6 +105,7 @@ for t in txns:
         "amt": t["amount"],
     })
 
+max_amt = max(day_sum.values() or [1])
 cal = calendar.Calendar(firstweekday=6).monthdayscalendar(year, month)
 head = "".join(f'<th class="{"sun" if i == 0 else "sat" if i == 6 else ""}">{w}</th>'
                for i, w in enumerate(["일", "월", "화", "수", "목", "금", "토"]))
@@ -107,30 +122,31 @@ for week in cal:
         amt_html = f'<span class="amt">{won_short(amt)}</span>' if amt else ""
         click = f' onclick="pop({d},event)"' if amt else ""
         has = " has" if amt else ""
-        row += f'<td class="{cls}{has}"{click}><span class="num {dcls}">{d}</span>{amt_html}</td>'
+        heat = f' style="background:rgba(59,130,246,{0.10 + 0.45 * amt / max_amt:.2f})"' if amt else ""
+        row += f'<td class="{cls}{has}"{click}{heat}><span class="num {dcls}">{d}</span>{amt_html}</td>'
     body += f"<tr>{row}</tr>"
 
 cal_html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'><style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{background:transparent;font-family:-apple-system,'Segoe UI',sans-serif}}
 table{{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:3px}}
-th{{color:#64748b;font-size:12px;font-weight:700;padding:4px 0}}
-th.sun,.num.sun{{color:#ef4444}} th.sat,.num.sat{{color:#3b82f6}}
-td{{background:#fff;border-radius:10px;height:58px;vertical-align:top;padding:5px;border:1px solid #eef2f6}}
+th{{color:#9ca3af;font-size:12px;font-weight:700;padding:4px 0}}
+th.sun,.num.sun{{color:#f87171}} th.sat,.num.sat{{color:#3b82f6}}
+td{{background:rgba(255,255,255,0.06);border-radius:10px;height:58px;vertical-align:top;padding:5px;border:1px solid rgba(255,255,255,0.08)}}
 td.empty{{background:transparent;border:none}}
-td.has{{cursor:pointer;background:#fff7ed;border-color:#fed7aa}}
-td.has:hover{{background:#ffedd5}}
-td.today{{outline:2px solid #ff6b00}}
+td.has{{cursor:pointer;background:rgba(59,130,246,0.14);border-color:rgba(96,165,250,0.40)}}
+td.has:hover{{filter:brightness(1.25)}}
+td.today{{outline:2px solid #3b82f6}}
 .num{{display:block;font-size:12px;font-weight:700;color:#94a3b8}}
-.amt{{display:block;margin-top:6px;font-size:12px;font-weight:800;color:#c2410c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-#p{{display:none;position:fixed;z-index:9;background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+.amt{{display:block;margin-top:6px;font-size:12px;font-weight:800;color:#93c5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+#p{{display:none;position:fixed;z-index:9;background:#2a292e;border:1px solid rgba(255,255,255,0.12);border-radius:12px;
     box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px 14px;width:260px;max-height:300px;overflow:auto;font-size:13px}}
-.t{{font-weight:800;margin-bottom:6px;color:#0f172a}}
-.i{{display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #f1f5f9}}
-.c{{font-size:11px;color:#fff;background:#ff6b00;border-radius:4px;padding:1px 5px;white-space:nowrap}}
-.d{{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#334155}}
-.a{{font-weight:800;color:#0f172a;white-space:nowrap}}
-.s{{text-align:right;font-weight:800;margin-top:6px;color:#c2410c}}
+.t{{font-weight:800;margin-bottom:6px;color:#f1f5f9}}
+.i{{display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)}}
+.c{{font-size:11px;color:#fff;background:#3b82f6;border-radius:4px;padding:1px 5px;white-space:nowrap}}
+.d{{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e2e8f0}}
+.a{{font-weight:800;color:#f1f5f9;white-space:nowrap}}
+.s{{text-align:right;font-weight:800;margin-top:6px;color:#93c5fd}}
 </style></head><body><div id='p'></div><table><tr>{head}</tr>{body}</table><script>
 var D={json.dumps(day_items, ensure_ascii=False)};
 function pop(day,e){{e.stopPropagation();var d=D[String(day)],p=document.getElementById('p');if(!d)return;
@@ -142,9 +158,9 @@ if(y+300>window.innerHeight)y=Math.max(4,r.top-304);p.style.left=Math.max(4,x)+'
 document.addEventListener('click',function(){{document.getElementById('p').style.display='none';}});
 </script></body></html>"""
 
-with st.container(border=True):
+with col_cal, st.container(border=True, key="glass_ledger_2", height="stretch"):
     st.markdown("#### :material/calendar_month: 달력")
-    st.caption("금액이 있는 날을 누르면 내역이 보입니다.")
+    st.caption("색이 진할수록 많이 쓴 날 · 누르면 내역이 보여요" + (f" · 가장 많이 쓴 곳: {top_cat[0]} {won_short(top_cat[1])}" if top_cat else ""))
     components.html(cal_html, height=len(cal) * 64 + 40, scrolling=False)
 
 
@@ -169,9 +185,6 @@ else:
     tab_list, tab_edit = st.tabs([f"목록 ({len(txns)}건)", "수정·삭제"])
 
     with tab_list:
-        cat_tot = {}
-        for t in txns:
-            cat_tot[t["category"]] = cat_tot.get(t["category"], 0) + t["amount"]
         opts = ["전체"] + [c for c, _ in sorted(cat_tot.items(), key=lambda x: -x[1])]
         sel = st.pills("카테고리", opts, default="전체", key=f"cat_filter_{year}_{month}",
                        format_func=lambda c: c if c == "전체" else f"{c} {won_short(cat_tot[c])}",
@@ -183,10 +196,10 @@ else:
             df.sort_values(["day"], ascending=False),
             hide_index=True,
             column_config={
-                "day": st.column_config.NumberColumn("일", width="small"),
+                "day": st.column_config.NumberColumn("일", width="small", format="%d일", alignment="left"),
                 "category": st.column_config.TextColumn("구분"),
                 "description": st.column_config.TextColumn("이용처"),
-                "amount": st.column_config.NumberColumn("금액", format="₩%d"),
+                "amount": st.column_config.NumberColumn("금액 (원)", format="localized"),
             },
         )
         st.caption(f"{len(df)}건 · 합계 {won(int(df['amount'].sum()))}")
@@ -201,8 +214,8 @@ else:
             column_config={
                 "삭제": st.column_config.CheckboxColumn("삭제", width="small"),
                 "id": None,
-                "day": st.column_config.NumberColumn("일", min_value=1, max_value=max_day, width="small"),
-                "amount": st.column_config.NumberColumn("금액", min_value=0, format="localized"),
+                "day": st.column_config.NumberColumn("일", min_value=1, max_value=max_day, width="small", alignment="left"),
+                "amount": st.column_config.NumberColumn("금액 (원)", min_value=0, format="localized"),
                 "description": st.column_config.TextColumn("이용처"),
                 "category": st.column_config.SelectboxColumn("구분", options=CATEGORIES),
             },

@@ -1,66 +1,40 @@
 """
-pages/3_📈_투자현황.py  ─  투자 자산 현황 관리
+app_pages/invest.py  ─  투자현황
+위: 전체 평가액·사람별/종류별 비중 → 가족·사람별 비교표 / 가운데: 보기(가족·준영·지윤)별 계좌 구성
+아래: 자산 수정 (계좌 고르고 종목·원금 입력)
 """
-import streamlit as st
-from utils.db import get_investments, upsert_investment, replace_investment_stocks, get_all_investment_stocks
-from utils.auth import get_supabase_client
 import pandas as pd
-from datetime import datetime
-import time
+import plotly.graph_objects as go
+import streamlit as st
 
-
-from utils.auth import is_authenticated, try_restore_session, get_current_user
-from utils.db import INVESTMENT_ACCOUNTS, get_investments, upsert_investment, get_monthly_income, upsert_monthly_income, get_all_investment_stocks, replace_investment_stocks, copy_previous_month_investments
+from utils.auth import get_current_user
+from utils.currency import get_usd_krw_rate
+from utils.db import (
+    INVESTMENT_ACCOUNTS, get_investments, upsert_investment, get_monthly_income, upsert_monthly_income,
+    get_all_investment_stocks, replace_investment_stocks, copy_previous_month_investments,
+)
+from utils.ui import page_header, now_kst, won, won_short, roll_number, flow_bar, legend_item, flash
 
 CUSTOM_SORT_ORDER = [
-    "Nh투자증권우", "NH투자증권우",
-    "대신증권우",
-    "LG화학우",
-    "삼성화재우",
-    "한국투자 ACE 고배당주증권 ETF", "ACE 고배당주",
-    "현대차우",
-    "KB금융",
-    "BITO",
-    "CONY",
-    "코인베이스 글로벌", "코인베이스",
-    "ETHU",
-    "레드와이어",
-    "Invesco QQQ Trust Series 1", "QQQ",
-    "iShares Semiconductor ETF", "SOXX",
-    "기업은행",
-    "현대차2우B",
-    "TIGER코스닥150",
-    "코리안리",
-    "서울보증보험",
-    "우리금융지주",
-    "KODEX미국배당커버드콜",
-    "CJ우",
-    "SK",
-    "NAVER"
+    "Nh투자증권우", "NH투자증권우", "대신증권우", "LG화학우", "삼성화재우",
+    "한국투자 ACE 고배당주증권 ETF", "ACE 고배당주", "현대차우", "KB금융", "BITO", "CONY",
+    "코인베이스 글로벌", "코인베이스", "ETHU", "레드와이어", "Invesco QQQ Trust Series 1", "QQQ",
+    "iShares Semiconductor ETF", "SOXX", "기업은행", "현대차2우B", "TIGER코스닥150", "코리안리",
+    "서울보증보험", "우리금융지주", "KODEX미국배당커버드콜", "CJ우", "SK", "NAVER",
 ]
-
-
-from utils.ui import page_header, now_kst
+ACC_ORDER = {"TOSS": 1, "중개형ISA": 2, "KB": 3, "총 예수금": 4, "CMA": 5, "청년도약": 6,
+             "주택청약": 7, "IRP": 8, "업비트": 9}
+ACC_COLOR = {"TOSS": "#3b82f6", "KB": "#f59e0b", "총 예수금": "#10b981", "CMA": "#8b5cf6",
+             "업비트": "#f43f5e", "청년도약": "#0ea5e9", "주택청약": "#60a5fa", "IRP": "#84cc16",
+             "중개형ISA": "#ec4899"}
+C_JY, C_JI = "#60a5fa", "#f472b6"
+C_CASH, C_NONCASH = "#34d399", "#a78bfa"
 
 now = now_kst()
-
-
-def _get_card_html(title: str, value: str, delta: str = "", border_color: str = "#ff6b00", delta_color: str = "#10b981"):
-    delta_html = f"<div style='font-size: clamp(0.65rem, 2.5vw, 0.8rem);font-weight:600;color:{delta_color};margin-top:4px;white-space:nowrap;'>{delta}</div>" if delta else ""
-    return f"""<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: clamp(10px, 2.5vw, 20px) clamp(4px, 1.5vw, 14px); box-shadow: 0 4px 12px rgba(0,0,0,0.03); height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; overflow: hidden;">
-<div style="width: 24px; height: 3px; background-color: {border_color}; border-radius: 2px; margin-bottom: clamp(6px, 2vw, 12px);"></div>
-<div style="font-size: clamp(0.65rem, 2.5vw, 0.8rem);color:#64748b;font-weight:600;letter-spacing:0.02em;margin-bottom:6px;white-space:nowrap;">{title}</div>
-<div style="font-size: clamp(0.85rem, 3.5vw, 1.35rem);font-weight:800;color:#1e293b;font-family:'KoPubWorldBold',monospace;line-height:1.2;letter-spacing:-0.5px;white-space:nowrap;">{value}</div>
-{delta_html}
-</div>"""
-
-def draw_light_divider():
-    st.markdown('<hr style="height:1px;border:none;background:#e2e8f0;margin:16px 0;">', unsafe_allow_html=True)
-
 year, month = page_header("투자현황")
 
-is_past_month    = (year < now.year) or (year == now.year and month < now.month)
-is_current_month = (year == now.year and month == now.month)
+# ── 마감 (지난 달만) ──────────────────────────────────────
+is_past_month = (year, month) < (now.year, now.month)
 inc = get_monthly_income(year, month)
 confirmed_fields = (inc.get("confirmed_fields") or []) if inc else []  # NULL 도 빈 목록으로 (B13)
 is_closed = "investments_closed" in confirmed_fields
@@ -68,429 +42,237 @@ is_closed = "investments_closed" in confirmed_fields
 if is_past_month:
     user = get_current_user()
     is_admin = user and user.email == "jypark930@naver.com"
-    close_disabled = is_closed and not is_admin
-    new_status = st.radio("마감 여부", ["Y", "N"], index=0 if is_closed else 1,
-                          horizontal=True, disabled=close_disabled, key=f"close_radio_{year}_{month}")
-    if (new_status == "Y") != is_closed:
-        if new_status == "Y":
-            if "investments_closed" not in confirmed_fields:
-                confirmed_fields.append("investments_closed")
-        else:
-            if "investments_closed" in confirmed_fields:
-                confirmed_fields.remove("investments_closed")
+    with st.container(horizontal=True, horizontal_alignment="center", vertical_alignment="center"):
+        new_closed = st.toggle("이 달 마감", value=is_closed, disabled=is_closed and not is_admin,
+                               key=f"close_toggle_{year}_{month}",
+                               help="마감하면 이 달 자산을 고칠 수 없고, 대시보드 추이 그래프에 들어갑니다")
+        st.markdown("<span class='at-badge ok'>마감됨</span>" if is_closed
+                    else "<span class='at-badge warn'>아직 마감 안 함</span>", unsafe_allow_html=True)
+    if new_closed != is_closed:
+        if new_closed and "investments_closed" not in confirmed_fields:
+            confirmed_fields.append("investments_closed")
+        if not new_closed and "investments_closed" in confirmed_fields:
+            confirmed_fields.remove("investments_closed")
         upsert_monthly_income(year, month, inc if inc else {}, confirmed_fields=confirmed_fields)
         st.rerun()
 
-draw_light_divider()
-
-# ── 데이터 로드 및 집계 ───────────────────────────────────────────
+# ── 데이터 로드 및 집계 ─────────────────────────────────────
 # 미래 달을 넘겨 보기만 해도 전월 계좌가 복사되던 문제(B4) 때문에 이번 달까지만 복사한다.
-is_future_month = (year, month) > (now.year, now.month)
-if not is_future_month and copy_previous_month_investments(year, month):
-    st.toast("전월 투자 자산 및 상세 종목 내역을 성공적으로 복사해 왔습니다! 🚀", icon="✅")
+if (year, month) <= (now.year, now.month) and copy_previous_month_investments(year, month):
+    st.toast("전월 투자 자산과 종목 내역을 복사해 왔습니다.", icon=":material/content_copy:")
 
 invests = get_investments(year, month)
-all_inv_ids = [i["id"] for i in invests]
-all_stocks = get_all_investment_stocks(all_inv_ids)
+all_stocks = get_all_investment_stocks([i["id"] for i in invests])
+inv_map = {(i["owner"], i["account_type"]): {"amount": i.get("amount", 0), "principal": i.get("principal", 0)}
+           for i in invests}
 
-inv_map = {(i["owner"], i["account_type"]): {"amount": i.get("amount", 0), "principal": i.get("principal", 0)} for i in invests}
-
-from utils.currency import get_usd_krw_rate
-
-# 계좌명, 종목명 기준으로 종목 데이터를 그룹화 (수량, 원금, 평가액 등)
+# 계좌·종목 기준으로 묶기. 달러 예수금은 지금 환율로 원화 환산.
 stock_map = {}
 usd_rate = get_usd_krw_rate()
-
+inv_by_id = {i["id"]: i for i in invests}
 for s in all_stocks:
-    inv = next((i for i in invests if i["id"] == s["investment_id"]), None)
-    if not inv: continue
-    owner = inv["owner"]
-    acc = inv["account_type"]
-    name = s["stock_name"]
-    qty = s.get("quantity", 0)
-    principal = s.get("principal", 0)
-    valuation = s.get("valuation", 0)
-    
-    # 예수금(현금) 이름은 예수금(원화)로 마이그레이션 처리
+    inv = inv_by_id.get(s["investment_id"])
+    if not inv:
+        continue
+    owner, acc, name = inv["owner"], inv["account_type"], s["stock_name"]
+    qty, principal, valuation = s.get("quantity", 0), s.get("principal", 0), s.get("valuation", 0)
     if name == "예수금(현금)":
         name = "예수금(원화)"
-        
-    # 달러 예수금의 경우 실시간 환율 적용
     if acc == "총 예수금" and name == "예수금(달러)":
-        valuation = float(qty) * usd_rate
-        principal = float(qty) * usd_rate
-    
-    if (acc, name) not in stock_map:
-        stock_map[(acc, name)] = {"jy_p": 0, "jy_a": 0, "ji_p": 0, "ji_a": 0, "jy_qty": 0.0, "ji_qty": 0.0}
-        
-    if owner == "준영":
-        stock_map[(acc, name)]["jy_p"] += principal
-        stock_map[(acc, name)]["jy_a"] += valuation
-        stock_map[(acc, name)]["jy_qty"] += float(qty)
-    else:
-        stock_map[(acc, name)]["ji_p"] += principal
-        stock_map[(acc, name)]["ji_a"] += valuation
-        stock_map[(acc, name)]["ji_qty"] += float(qty)
+        valuation = principal = float(qty) * usd_rate
+    d = stock_map.setdefault((acc, name), {"jy_p": 0, "jy_a": 0, "ji_p": 0, "ji_a": 0, "jy_qty": 0.0, "ji_qty": 0.0})
+    pre = "jy" if owner == "준영" else "ji"
+    d[f"{pre}_p"] += principal
+    d[f"{pre}_a"] += valuation
+    d[f"{pre}_qty"] += float(qty)
 
-# 종목이 등록된 계좌의 경우, 하위 종목들의 합계로 전체 계좌 데이터를 덮어씌움
-for owner in ["준영", "지윤"]:
-    p_key, a_key = ("jy_p", "jy_a") if owner == "준영" else ("ji_p", "ji_a")
-    qty_key = "jy_qty" if owner == "준영" else "ji_qty"
-    
+# 종목이 있는 계좌는 종목 합계로 계좌 금액을 덮어쓴다.
+for owner, pre in (("준영", "jy"), ("지윤", "ji")):
     acc_sums = {}
     for (acc, name), d in stock_map.items():
-        if d[qty_key] > 0 or d[p_key] > 0 or d[a_key] > 0:
-            if acc not in acc_sums:
-                acc_sums[acc] = {"p": 0, "a": 0}
-            acc_sums[acc]["p"] += d[p_key]
-            acc_sums[acc]["a"] += d[a_key]
-            
+        if d[f"{pre}_qty"] > 0 or d[f"{pre}_p"] > 0 or d[f"{pre}_a"] > 0:
+            a = acc_sums.setdefault(acc, {"p": 0, "a": 0})
+            a["p"] += d[f"{pre}_p"]
+            a["a"] += d[f"{pre}_a"]
     for acc, sums in acc_sums.items():
         inv_map[(owner, acc)] = {"principal": sums["p"], "amount": sums["a"]}
         for i in invests:
             if i["owner"] == owner and i["account_type"] == acc:
-                i["principal"] = sums["p"]
-                i["amount"] = sums["a"]
+                i["principal"], i["amount"] = sums["p"], sums["a"]
 
 
 def calc_pnl(principal, amount):
-    if principal == 0:
-        return 0.0
-    return (amount - principal) / principal * 100
+    return 0.0 if not principal else (amount - principal) / principal * 100
 
-def format_pnl(pnl):
-    if pnl == 0.0:
-        return f"<span style='color: gray;'>0.0%</span>"
-    color = "#f87171" if pnl > 0 else "#60a5fa"
-    sign = "+" if pnl > 0 else ""
-    return f"<span style='color: {color}; font-weight: bold;'>{sign}{pnl:.1f}%</span>"
 
-def get_row_data(acc_type):
-    jy_p = inv_map.get(("준영", acc_type), {}).get("principal", 0)
-    jy_a = inv_map.get(("준영", acc_type), {}).get("amount", 0)
-    ji_p = inv_map.get(("지윤", acc_type), {}).get("principal", 0)
-    ji_a = inv_map.get(("지윤", acc_type), {}).get("amount", 0)
-    
-    tot_p = jy_p + ji_p
-    tot_a = jy_a + ji_a
-    
-    return {
-        "tot_p": tot_p, "tot_a": tot_a, "tot_pnl": calc_pnl(tot_p, tot_a),
-        "jy_p": jy_p, "jy_a": jy_a, "jy_pnl": calc_pnl(jy_p, jy_a),
-        "ji_p": ji_p, "ji_a": ji_a, "ji_pnl": calc_pnl(ji_p, ji_a),
-    }
-
-def get_stock_row_data(acc_type, name):
-    d = stock_map[(acc_type, name)]
-    tot_p = d["jy_p"] + d["ji_p"]
-    tot_a = d["jy_a"] + d["ji_a"]
-    return {
-        "tot_p": tot_p, "tot_a": tot_a, "tot_pnl": calc_pnl(tot_p, tot_a),
-        "jy_p": d["jy_p"], "jy_a": d["jy_a"], "jy_pnl": calc_pnl(d["jy_p"], d["jy_a"]),
-        "ji_p": d["ji_p"], "ji_a": d["ji_a"], "ji_pnl": calc_pnl(d["ji_p"], d["ji_a"]),
-    }
-
-def build_tr(label, data, is_bold=False, indent=0, bg_color=""):
-    style = ""
-    if bg_color:
-        style += f"background-color: {bg_color}; "
-    if is_bold:
-        style += "font-weight: bold; "
-    
-    pad = 10 + (indent * 20)
-    
-    def fmt(val):
-        return f"{int(round(val)):,}" if val != 0 else "-"
-        
-    return f"""<tr style="{style}">
-<td style="padding-left: {pad}px;">{label}</td>
-<td style="text-align: right;">{fmt(data['tot_p'])}</td>
-<td style="text-align: right;">{fmt(data['tot_a'])}</td>
-<td style="text-align: right;">{format_pnl(data['tot_pnl'])}</td>
-<td style="text-align: right;">{fmt(data['jy_p'])}</td>
-<td style="text-align: right;">{fmt(data['jy_a'])}</td>
-<td style="text-align: right;">{format_pnl(data['jy_pnl'])}</td>
-<td style="text-align: right;">{fmt(data['ji_p'])}</td>
-<td style="text-align: right;">{fmt(data['ji_a'])}</td>
-<td style="text-align: right;">{format_pnl(data['ji_pnl'])}</td>
-</tr>"""
-
-# 데이터 집계 로직
-non_cash_list = INVESTMENT_ACCOUNTS["비현금성 자산"]
 cash_list = INVESTMENT_ACCOUNTS["현금성 자산"]
-
-non_cash_data = {"tot_p":0, "tot_a":0, "jy_p":0, "jy_a":0, "ji_p":0, "ji_a":0}
-for acc in non_cash_list:
-    d = get_row_data(acc)
-    for k in ["tot_p", "tot_a", "jy_p", "jy_a", "ji_p", "ji_a"]: non_cash_data[k] += d[k]
-non_cash_data["tot_pnl"] = calc_pnl(non_cash_data["tot_p"], non_cash_data["tot_a"])
-non_cash_data["jy_pnl"]  = calc_pnl(non_cash_data["jy_p"], non_cash_data["jy_a"])
-non_cash_data["ji_pnl"]  = calc_pnl(non_cash_data["ji_p"], non_cash_data["ji_a"])
-
-cash_data = {"tot_p":0, "tot_a":0, "jy_p":0, "jy_a":0, "ji_p":0, "ji_a":0}
-for acc in cash_list:
-    d = get_row_data(acc)
-    for k in ["tot_p", "tot_a", "jy_p", "jy_a", "ji_p", "ji_a"]: cash_data[k] += d[k]
-cash_data["tot_pnl"] = calc_pnl(cash_data["tot_p"], cash_data["tot_a"])
-cash_data["jy_pnl"]  = calc_pnl(cash_data["jy_p"], cash_data["jy_a"])
-cash_data["ji_pnl"]  = calc_pnl(cash_data["ji_p"], cash_data["ji_a"])
-
-total_data = {k: non_cash_data[k] + cash_data[k] for k in ["tot_p", "tot_a", "jy_p", "jy_a", "ji_p", "ji_a"]}
-total_data["tot_pnl"] = calc_pnl(total_data["tot_p"], total_data["tot_a"])
-total_data["jy_pnl"]  = calc_pnl(total_data["jy_p"], total_data["jy_a"])
-total_data["ji_pnl"]  = calc_pnl(total_data["ji_p"], total_data["ji_a"])
-
-# ── KPI 카드 ──────────────────────────────────────────────
-tot_pnl_amt = total_data["tot_a"] - total_data["tot_p"]
-tot_pnl_sign = "+" if tot_pnl_amt >= 0 else ""
-delta_text = f"{tot_pnl_sign}{int(round(tot_pnl_amt)):,}원 ({total_data['tot_pnl']:.1f}%)"
-delta_color = "#10b981" if tot_pnl_amt >= 0 else "#ef4444"
-
-jy_pnl_amt = total_data["jy_a"] - total_data["jy_p"]
-jy_pnl_sign = "+" if jy_pnl_amt >= 0 else ""
-jy_delta = f"{jy_pnl_sign}{int(round(jy_pnl_amt)):,}원 ({total_data['jy_pnl']:.1f}%)"
-jy_color = "#10b981" if jy_pnl_amt >= 0 else "#ef4444"
-
-ji_pnl_amt = total_data["ji_a"] - total_data["ji_p"]
-ji_pnl_sign = "+" if ji_pnl_amt >= 0 else ""
-ji_delta = f"{ji_pnl_sign}{int(round(ji_pnl_amt)):,}원 ({total_data['ji_pnl']:.1f}%)"
-ji_color = "#10b981" if ji_pnl_amt >= 0 else "#ef4444"
-
-cash_tot_pnl_amt = cash_data["tot_a"] - cash_data["tot_p"]
-cash_tot_pnl_sign = "+" if cash_tot_pnl_amt >= 0 else ""
-cash_delta_text = f"{cash_tot_pnl_sign}{int(round(cash_tot_pnl_amt)):,}원 ({cash_data['tot_pnl']:.1f}%)" if cash_data["tot_p"] > 0 else ""
-cash_delta_color = "#10b981" if cash_tot_pnl_amt >= 0 else "#ef4444"
-
-cash_jy_pnl_amt = cash_data["jy_a"] - cash_data["jy_p"]
-cash_jy_pnl_sign = "+" if cash_jy_pnl_amt >= 0 else ""
-cash_jy_delta = f"{cash_jy_pnl_sign}{int(round(cash_jy_pnl_amt)):,}원 ({cash_data['jy_pnl']:.1f}%)" if cash_data["jy_p"] > 0 else ""
-cash_jy_color = "#10b981" if cash_jy_pnl_amt >= 0 else "#ef4444"
-
-cash_ji_pnl_amt = cash_data["ji_a"] - cash_data["ji_p"]
-cash_ji_pnl_sign = "+" if cash_ji_pnl_amt >= 0 else ""
-cash_ji_delta = f"{cash_ji_pnl_sign}{int(round(cash_ji_pnl_amt)):,}원 ({cash_data['ji_pnl']:.1f}%)" if cash_data["ji_p"] > 0 else ""
-cash_ji_color = "#10b981" if cash_ji_pnl_amt >= 0 else "#ef4444"
-
-grid_html = f"""
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 8px;">
-<div>{_get_card_html("전체 자산 평가액", f"₩{int(round(total_data['tot_a'])):,}", delta_text, "#1b263b", delta_color)}</div>
-<div>{_get_card_html("준영 자산 평가액", f"₩{int(round(total_data['jy_a'])):,}", jy_delta, "#3b82f6", jy_color)}</div>
-<div>{_get_card_html("지윤 자산 평가액", f"₩{int(round(total_data['ji_a'])):,}", ji_delta, "#f472b6", ji_color)}</div>
-</div>
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 12px;">
-<div>{_get_card_html("전체 자산 원금", f"₩{int(round(total_data['tot_p'])):,}", "", "#1b263b", "")}</div>
-<div>{_get_card_html("준영 자산 원금", f"₩{int(round(total_data['jy_p'])):,}", "", "#3b82f6", "")}</div>
-<div>{_get_card_html("지윤 자산 원금", f"₩{int(round(total_data['ji_p'])):,}", "", "#f472b6", "")}</div>
-</div>
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 8px;">
-<div>{_get_card_html("전체 현금성 자산 평가액", f"₩{int(round(cash_data['tot_a'])):,}", cash_delta_text, "#1b263b", cash_delta_color)}</div>
-<div>{_get_card_html("준영 현금성 자산 평가액", f"₩{int(round(cash_data['jy_a'])):,}", cash_jy_delta, "#3b82f6", cash_jy_color)}</div>
-<div>{_get_card_html("지윤 현금성 자산 평가액", f"₩{int(round(cash_data['ji_a'])):,}", cash_ji_delta, "#f472b6", cash_ji_color)}</div>
-</div>
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1.5vw, 10px); margin-bottom: 20px;">
-<div>{_get_card_html("전체 현금성 자산 원금", f"₩{int(round(cash_data['tot_p'])):,}", "", "#1b263b", "")}</div>
-<div>{_get_card_html("준영 현금성 자산 원금", f"₩{int(round(cash_data['jy_p'])):,}", "", "#3b82f6", "")}</div>
-<div>{_get_card_html("지윤 현금성 자산 원금", f"₩{int(round(cash_data['ji_p'])):,}", "", "#f472b6", "")}</div>
-</div>
-"""
-st.markdown(grid_html, unsafe_allow_html=True)
-
-draw_light_divider()
-
-# ── 자산 구성 요약 + 계좌별 상세 (탭 통합) ────────────────────
-st.markdown(f"<p style='font-size:1.3rem;font-weight:700;color:#1e293b;margin-bottom:8px;'>자산 구성 비중 <span style='font-size:1.1rem;color:#64748b;font-weight:600;'>(총 원금: ₩{int(round(total_data['tot_p'])):,})</span></p>", unsafe_allow_html=True)
-if invests and total_data["tot_p"] > 0:
-    import plotly.graph_objects as go
-    tab_fam, tab_jy, tab_ji = st.tabs(["\U0001f31f 가족 전체", "\U0001f468 준영", "\U0001f469 지윤"])
-
-    def _draw_pie_tab(owner_name, tot_amt, cash_amt, non_cash_amt, is_total=False):
-        if tot_amt <= 0:
-            st.info(f"{owner_name} 자산 데이터가 없습니다.")
-            return
-            
-        c1, c2 = st.columns([1, 1], vertical_alignment="center")
-        with c1:
-            if is_total:
-                labels = ["현금성 자산", "비현금성 자산"]
-                values = [cash_amt, non_cash_amt]
-                colors = ["#3b82f6", "#ff6b00"]
-            else:
-                data = [(i["account_type"], i.get("principal", 0)) for i in invests if i["owner"] == owner_name and i.get("principal", 0) > 0]
-                acc_order = ["TOSS", "KB", "총 예수금", "CMA", "업비트", "청년도약", "주택청약", "IRP", "중개형ISA"]
-                data = sorted(data, key=lambda x: acc_order.index(x[0]) if x[0] in acc_order else 999)
-                labels, values = zip(*data) if data else (["데이터없음"],[1])
-                acc_color_map = {
-                    "TOSS": "#3b82f6", "KB": "#f59e0b", "총 예수금": "#10b981", 
-                    "CMA": "#8b5cf6", "업비트": "#f43f5e", "청년도약": "#0ea5e9",
-                    "주택청약": "#ff6b00", "IRP": "#84cc16", "중개형ISA": "#ec4899"
-                }
-                colors = [acc_color_map.get(lbl, "#94a3b8") for lbl in labels] if data else ["#e2e8f0"]
-
-            fig = go.Figure(go.Pie(
-                labels=labels, values=values, sort=False, direction='clockwise',
-                hole=0.45, marker_colors=colors, textinfo="percent+label", textposition="inside",
-                insidetextorientation="horizontal"
-            ))
-            fig.update_traces(marker=dict(line=dict(color='#ffffff', width=3)))
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="#475569", height=280, margin=dict(l=0, r=0, t=10, b=0), showlegend=False)
-            st.plotly_chart(fig, width="stretch")
-            
-        with c2:
-            st.markdown(f"""
-            <div style='background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0; margin-top:12px;'>
-                <div style='margin-bottom:8px; font-size:1.05rem;'><span style='color:#3b82f6;'>\U0001f4b0</span> <b>현금성 자산</b>: \u20a9{int(round(cash_amt)):,} <span style='color:#64748b;font-size:0.9rem;'>({cash_amt/tot_amt*100:.1f}%)</span></div>
-                <div style='font-size:1.05rem;'><span style='color:#ff6b00;'>\U0001f3e0</span> <b>비현금성 자산</b>: \u20a9{int(round(non_cash_amt)):,} <span style='color:#64748b;font-size:0.9rem;'>({non_cash_amt/tot_amt*100:.1f}%)</span></div>
-                <div style='font-size:0.78rem;color:#94a3b8;margin-top:10px;'>* 자산은 원금 기준임</div>
-            </div>
-            """, unsafe_allow_html=True)
+non_cash_list = INVESTMENT_ACCOUNTS["비현금성 자산"]
 
 
-# investment_id → stocks 매핑
+def _sum(owners, accs):
+    p = sum(inv_map.get((o, a), {}).get("principal", 0) or 0 for o in owners for a in accs)
+    a_ = sum(inv_map.get((o, a), {}).get("amount", 0) or 0 for o in owners for a in accs)
+    return p, a_
+
+
+ALL = cash_list + non_cash_list
+OWNERS = {"가족": ["준영", "지윤"], "준영": ["준영"], "지윤": ["지윤"]}
+tot_p, tot_a = _sum(["준영", "지윤"], ALL)
+
+
+def _pnl_html(p, a, short=False) -> str:
+    d = a - p
+    if not p and not a:
+        return "<span class='dim'>-</span>"
+    cls = "up" if d > 0 else "down" if d < 0 else "dim"
+    sign = "+" if d > 0 else "-" if d < 0 else ""
+    amt = won_short(abs(d)) if short else f"{abs(int(round(d))):,}원"
+    return f"<span class='{cls}'>{sign}{amt} ({sign}{abs(calc_pnl(p, a)):.1f}%)</span>"
+
+
+def _pnl_md(p, a) -> str:
+    d = a - p
+    if not p:
+        return ""
+    color = "red" if d > 0 else "blue" if d < 0 else "gray"
+    return f":{color}[{'+' if d > 0 else ''}{calc_pnl(p, a):.1f}%]"
+
+
+# ── 한눈에 ───────────────────────────────────────────────
+jy_p, jy_a = _sum(["준영"], ALL)
+ji_p, ji_a = _sum(["지윤"], ALL)
+cash_p, cash_a = _sum(["준영", "지윤"], cash_list)
+nc_p, nc_a = _sum(["준영", "지윤"], non_cash_list)
+
+if not invests:
+    st.info(f"{year}년 {month}월에 등록된 투자 자산이 없습니다. 아래 '자산 수정'에서 계좌를 넣어 주세요.")
+else:
+    share = lambda v: f"{v / tot_a * 100:.0f}%" if tot_a else ""  # noqa: E731
+    st.markdown(
+        "<div class='at-kpi at-hero'>"
+        "<div class='lbl'>가족 전체 평가액</div>"
+        f"<div class='big'>{roll_number(won(tot_a))}</div>"
+        f"<div class='sub at-table' style='display:block'>원금 <b>{won(tot_p)}</b> · 수익 {_pnl_html(tot_p, tot_a)}</div>"
+        + flow_bar([("준영", jy_a, C_JY), ("지윤", ji_a, C_JI)], tot_a)
+        + "<div class='at-legend'>"
+        + legend_item("준영", won_short(jy_a), C_JY, share(jy_a))
+        + legend_item("지윤", won_short(ji_a), C_JI, share(ji_a))
+        + legend_item("현금성", won_short(cash_a), C_CASH, share(cash_a))
+        + legend_item("비현금성", won_short(nc_a), C_NONCASH, share(nc_a))
+        + "</div>"
+        + flow_bar([("현금성", cash_a, C_CASH), ("비현금성", nc_a, C_NONCASH)], tot_a)
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+    def _row(label, accs, sep=False):
+        cells = ""
+        for who in ("가족", "준영", "지윤"):
+            p, a = _sum(OWNERS[who], accs)
+            cells += f"<td>{won_short(a)}<br><span style='font-size:0.75rem'>{_pnl_html(p, a, short=True)}</span></td>"
+        return f"<tr class='{'sep' if sep else ''}'><td>{label}</td>{cells}</tr>"
+
+    def _prow(label, accs):
+        return f"<tr><td>{label}</td>" + "".join(
+            f"<td class='dim'>{won_short(_sum(OWNERS[w], accs)[0])}</td>" for w in ("가족", "준영", "지윤")) + "</tr>"
+
+    with st.container(border=True, key="glass_inv_cmp"):
+        st.markdown("**:material/group: 가족·사람별 비교** · 평가액 (아래 작은 글씨는 수익)")
+        st.markdown(
+            "<table class='at-table'><tr><th></th><th>가족</th><th>준영</th><th>지윤</th></tr>"
+            + _row("전체", ALL) + _prow("　원금", ALL)
+            + _row("현금성", cash_list, sep=True) + _prow("　원금", cash_list)
+            + _row("비현금성", non_cash_list, sep=True) + _prow("　원금", non_cash_list)
+            + "</table>",
+            unsafe_allow_html=True,
+        )
+
+# ── 보기별 계좌 구성 ──────────────────────────────────────
 inv_stocks_map = {}
 for s in all_stocks:
-    iid = s["investment_id"]
-    if iid not in inv_stocks_map:
-        inv_stocks_map[iid] = []
-    inv_stocks_map[iid].append(s)
+    inv_stocks_map.setdefault(s["investment_id"], []).append(s)
 
 SKIP_STOCK_NAMES = {"예수금(원화)", "예수금(달러)", "예수금(현금)", "예수금", "보유금액", "주택청약", "청년도약"}
-# 종목 입력 가능한 계좌 목록
-STOCK_INPUT_ACCOUNTS = ["총 예수금", "중개형ISA", "IRP", "KB", "TOSS", "업비트"]
-PRINCIPAL_ONLY_ACCOUNTS = ["총 예수금", "CMA", "청년도약"]  # 원금만 수정 가능한 계좌
+STOCK_INPUT_ACCOUNTS = ["총 예수금", "중개형ISA", "IRP", "KB", "TOSS", "업비트"]  # 종목 입력 계좌
+PRINCIPAL_ONLY_ACCOUNTS = ["총 예수금", "CMA", "청년도약"]
 
-def render_detail_table(owner_key, prefix="", show_stocks=False):
-    owner_invs = [i for i in invests if i["owner"] == owner_key]
-    if not owner_invs:
-        st.info(f"{owner_key}님의 등록된 자산이 없습니다.")
-        return
 
-    sort_order = {"TOSS": 1, "중개형ISA": 2, "KB": 3, "총 예수금": 4,
-                  "CMA": 5, "청년도약": 6, "주택청약": 7, "IRP": 8, "업비트": 9}
-    owner_invs.sort(key=lambda x: sort_order.get(x["account_type"], 99))
+def _stock_sort_key(s):
+    name = s.get("stock_name", "")
+    return (0, CUSTOM_SORT_ORDER.index(name)) if name in CUSTOM_SORT_ORDER else (1, -(s.get("valuation", 0) or 0))
 
-    cash_invs = [i for i in owner_invs if i["account_type"] in INVESTMENT_ACCOUNTS["현금성 자산"]]
-    non_cash_invs = [i for i in owner_invs if i["account_type"] not in INVESTMENT_ACCOUNTS["현금성 자산"]]
 
-    def _render_group(title, icon, invs):
-        if not invs: return
-        grp_p = sum(i.get("principal", 0) for i in invs)
-        grp_a = sum(i.get("amount", 0) for i in invs)
-        grp_pnl_amt = grp_a - grp_p
-        grp_pnl_pct = calc_pnl(grp_p, grp_a)
-        grp_sign = "+" if grp_pnl_amt > 0 else ""
-        grp_color = "#ef4444" if grp_pnl_amt > 0 else "#3b82f6" if grp_pnl_amt < 0 else "#64748b"
-        st.markdown(f"""
-        <div style='margin-top:20px;margin-bottom:12px;border-bottom:2px solid #e2e8f0;padding-bottom:8px;'>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <h5 style="margin:0;color:#334155;font-size:1.35rem;font-weight:800;">{icon} {title}</h5>
-                <span style="font-size:1.05rem;font-weight:700;color:{grp_color};">{grp_sign}{int(round(grp_pnl_amt)):,} ({grp_sign}{grp_pnl_pct:.1f}%)</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:0.9rem;color:#64748b;font-weight:500;">원금: {int(round(grp_p)):,}원</span>
-                <span style="font-size:1.05rem;font-weight:700;color:#1e293b;">평가액: {int(round(grp_a)):,}원</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+def _stock_rows(stocks) -> str:
+    rows = ""
+    for s in sorted(stocks, key=_stock_sort_key):
+        qty = s.get("quantity", 0) or 0
+        v, p = s.get("valuation", 0) or 0, s.get("principal", 0) or 0
+        rows += (f"<tr><td>{s.get('stock_name', '')}<br><span class='dim' style='font-size:0.75rem'>"
+                 f"{f'{qty:g}주' if qty else ''}</span></td>"
+                 f"<td>{won(v)}<br><span style='font-size:0.75rem'>{_pnl_html(p, v)}</span></td></tr>")
+    return f"<table class='at-table'><tr><th>종목</th><th>평가액 · 수익</th></tr>{rows}</table>"
 
-        def get_sort_key(s):
-            sname = s.get("stock_name", "")
-            try: return (0, CUSTOM_SORT_ORDER.index(sname))
-            except: return (1, -s.get("valuation", 0))
 
-        for inv in invs:
-            acc_type = inv["account_type"]
-            stocks = inv_stocks_map.get(inv["id"], [])
-            real_stocks = [s for s in stocks if s.get("stock_name", "") not in SKIP_STOCK_NAMES]
-            tot_p = inv.get("principal", 0) or 0
-            tot_a = inv.get("amount", 0) or 0
-            if not real_stocks and tot_a == 0 and tot_p == 0:
+if invests:
+    st.markdown("#### :material/account_balance: 계좌 구성")
+    view = st.segmented_control("보기", ["가족", "준영", "지윤"], default="가족", key="inv_view",
+                                label_visibility="collapsed") or "가족"
+    owners = OWNERS[view]
+    accs = sorted({a for (o, a) in inv_map if o in owners}, key=lambda a: ACC_ORDER.get(a, 99))
+    acc_vals = [(a, *_sum(owners, [a])) for a in accs]
+    acc_vals = [x for x in acc_vals if x[1] or x[2]]
+
+    c1, c2 = st.columns([2, 3], gap="medium")
+    with c1, st.container(border=True, key="glass_inv_pie"):
+        vp, va = _sum(owners, ALL)
+        if not acc_vals:
+            st.caption(f"{view} 자산이 없습니다.")
+        else:
+            fig = go.Figure(go.Pie(
+                labels=[a for a, _, _ in acc_vals], values=[p for _, p, _ in acc_vals], sort=False,
+                direction="clockwise", hole=0.62, textinfo="label", textposition="inside",
+                insidetextorientation="horizontal",
+                marker=dict(colors=[ACC_COLOR.get(a, "#94a3b8") for a, _, _ in acc_vals],
+                            line=dict(color="rgba(26,25,28,0.9)", width=3)),
+                hovertemplate="%{label}<br>원금 ₩%{value:,.0f} (%{percent})<extra></extra>",
+            ))
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", font=dict(family="KoPub, sans-serif", color="#e5e7eb"),
+                height=300, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
+                annotations=[dict(text=f"<b>{won_short(vp)}</b><br><span style='font-size:11px'>원금</span>",
+                                  showarrow=False, font=dict(size=18, color="#f3f4f6"))],
+            )
+            st.plotly_chart(fig, config={"displayModeBar": False})
+            st.caption(f"{view} 원금 기준 비중")
+
+    with c2:
+        for grp_name, grp_accs in (("현금성 자산", cash_list), ("비현금성 자산", non_cash_list)):
+            rows = [x for x in acc_vals if x[0] in grp_accs]
+            if not rows:
                 continue
-            tot_pnl_amt = tot_a - tot_p
-            tot_pnl_pct = calc_pnl(tot_p, tot_a)
-            pnl_sign = "+" if tot_pnl_amt > 0 else ""
-            pnl_color = "#ef4444" if tot_pnl_amt > 0 else "#3b82f6" if tot_pnl_amt < 0 else "#64748b"
+            gp, ga = _sum(owners, grp_accs)
+            st.markdown(f"<div style='display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:space-between;align-items:baseline;margin:6px 2px'>"
+                        f"<b style='font-size:1.05rem;white-space:nowrap'>{grp_name}</b>"
+                        f"<span class='at-table'>{won(ga)} · {_pnl_html(gp, ga, short=True)}</span></div>",
+                        unsafe_allow_html=True)
+            for acc, p, a in rows:
+                label = f"**{acc}** · {won(a)} {_pnl_md(p, a)}"
+                with st.expander(label):
+                    if view == "가족":
+                        lines = "".join(
+                            f"<tr><td>{o}</td><td>{won(inv_map.get((o, acc), {}).get('amount', 0) or 0)}</td>"
+                            f"<td class='dim'>{won(inv_map.get((o, acc), {}).get('principal', 0) or 0)}</td></tr>"
+                            for o in ("준영", "지윤") if (o, acc) in inv_map)
+                        st.markdown(f"<table class='at-table'><tr><th>사람</th><th>평가액</th><th>원금</th></tr>"
+                                    f"{lines}</table>", unsafe_allow_html=True)
+                    else:
+                        inv = next((i for i in invests if i["owner"] == view and i["account_type"] == acc), None)
+                        real = [s for s in inv_stocks_map.get(inv["id"], []) if s.get("stock_name", "") not in SKIP_STOCK_NAMES] if inv else []
+                        st.markdown(f"<div class='at-table' style='margin-bottom:6px'>원금 {won(p)} · 수익 {_pnl_html(p, a)}</div>",
+                                    unsafe_allow_html=True)
+                        if real:
+                            st.markdown(_stock_rows(real), unsafe_allow_html=True)
 
-            if real_stocks and show_stocks:
-                # 계좌 헤더 (읽기 전용)
-                st.markdown(f'''
-<div style="margin-bottom:0;background:#f8fafc;padding:14px 16px;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:2px solid #cbd5e1;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-    <span style="font-size:1rem;font-weight:700;color:#0f172a;">🏦 {acc_type}</span>
-    <span style="font-size:0.85rem;color:#64748b;">원금: {int(round(tot_p)):,}원</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <span style="font-size:1rem;font-weight:700;color:#1e293b;">평가액: {int(round(tot_a)):,}원</span>
-    <span style="font-size:0.9rem;font-weight:700;color:{pnl_color};">{pnl_sign}{int(round(tot_pnl_amt)):,}원 ({pnl_sign}{tot_pnl_pct:.1f}%)</span>
-  </div>
-</div>''', unsafe_allow_html=True)
-                n_stocks = len(real_stocks)
-                for i, s in enumerate(sorted(real_stocks, key=get_sort_key)):
-                    sname  = s.get("stock_name", "")
-                    qty    = s.get("quantity", 0) or 0
-                    s_val  = s.get("valuation", 0) or 0
-                    s_prin = s.get("principal", 0) or 0
-                    s_pnl  = s_val - s_prin
-                    s_pct  = calc_pnl(s_prin, s_val)
-                    s_color = "#ef4444" if s_pnl > 0 else "#3b82f6" if s_pnl < 0 else "#64748b"
-                    s_sign  = "+" if s_pnl > 0 else ""
-                    qty_str = f"{qty:g}주" if qty else "-"
-                    is_last = (i == n_stocks - 1)
-                    br = "border-radius:0 0 12px 12px;" if is_last else ""
-                    mb = "margin-bottom:12px;" if is_last else ""
-                    st.markdown(f'''
-<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#ffffff;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;{br}{mb}">
-  <div><span style="font-size:0.95rem;font-weight:600;color:#1e293b;">{sname}</span><br>
-    <span style="font-size:0.78rem;color:#94a3b8;">{qty_str}</span></div>
-  <div style="text-align:right;"><span style="font-size:0.95rem;font-weight:600;color:#1e293b;">{int(round(s_val)):,}원</span><br>
-    <span style="font-size:0.78rem;font-weight:600;color:{s_color};">{s_sign}{int(round(s_pnl)):,} ({s_sign}{s_pct:.1f}%)</span></div>
-</div>''', unsafe_allow_html=True)
-            else:
-                st.markdown(f'''
-<div style="margin-bottom:12px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-    <span style="font-size:1rem;font-weight:700;color:#0f172a;">🏦 {acc_type}</span>
-    <span style="font-size:0.85rem;color:#64748b;">원금: {int(round(tot_p)):,}원</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <span style="font-size:1rem;font-weight:700;color:#1e293b;">평가액: {int(round(tot_a)):,}원</span>
-    <span style="font-size:0.9rem;font-weight:700;color:{pnl_color};">{pnl_sign}{int(round(tot_pnl_amt)):,}원 ({pnl_sign}{tot_pnl_pct:.1f}%)</span>
-  </div>
-</div>''', unsafe_allow_html=True)
-
-    _render_group("현금성 자산", "💰", cash_invs)
-    _render_group("비현금성 자산", "🏠", non_cash_invs)
-
-if invests and total_data["tot_p"] > 0:
-    with tab_fam:
-        _draw_pie_tab("가족 전체", total_data["tot_p"], cash_data["tot_p"], non_cash_data["tot_p"], is_total=True)
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 현황 — 👨 준영")
-        render_detail_table("준영", prefix="fam_jy_")
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 현황 — \U0001f469 지윤")
-        render_detail_table("지윤", prefix="fam_ji_")
-    with tab_jy:
-        _draw_pie_tab("준영", total_data["jy_p"], cash_data["jy_p"], non_cash_data["jy_p"], is_total=False)
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 상세 현황")
-        render_detail_table("준영", prefix="tab_jy_")
-    with tab_ji:
-        _draw_pie_tab("지윤", total_data["ji_p"], cash_data["ji_p"], non_cash_data["ji_p"], is_total=False)
-        draw_light_divider()
-        st.subheader("\U0001f4cb 계좌별 상세 현황")
-        render_detail_table("지윤", prefix="tab_ji_")
-
-draw_light_divider()
-
-
-
-draw_light_divider()
-
-# ── 자산 수정 ──────────────────────────────────────────────
-st.subheader("✏️ 자산 수정")
-st.caption("계좌를 선택하고 금액이나 종목을 수정한 뒤 저장하세요. 저장하면 위 현황에 즉시 반영됩니다.")
-
-tab_jy_edit, tab_jd_edit = st.tabs(["👨 준영", "👩 지윤"])
 
 
 def _si(v, d=0) -> int:
@@ -546,7 +328,6 @@ def _render_stock_editor(owner: str, sel_acc: str):
         if editor_key in st.session_state:
             del st.session_state[editor_key]
 
-    import pandas as pd
     edited_df = st.data_editor(
         pd.DataFrame(st.session_state[data_key]),
         key=editor_key,
@@ -554,9 +335,9 @@ def _render_stock_editor(owner: str, sel_acc: str):
         width="stretch",
         column_config={
             "종목명":  st.column_config.TextColumn("종목명 (계좌명 등)", width="medium"),
-            "원금":    st.column_config.NumberColumn("원금(₩)", format="%d"),
-            "평가수익": st.column_config.NumberColumn("평가수익(₩)", format="%d"),
-            "평가액":  st.column_config.NumberColumn("평가액 (자동 계산)", disabled=True, format="%d"),
+            "원금":    st.column_config.NumberColumn("원금 (원)", format="localized"),
+            "평가수익": st.column_config.NumberColumn("평가수익 (원)", format="localized"),
+            "평가액":  st.column_config.NumberColumn("평가액 (원, 자동)", disabled=True, format="localized"),
         },
         disabled=["평가액"] if not is_closed else True,
     )
@@ -613,7 +394,7 @@ def _render_stock_editor(owner: str, sel_acc: str):
             )
             if inv_id:
                 replace_investment_stocks(inv_id, stocks_to_save)
-            st.success(f"✅ {owner} / {sel_acc} 종목 데이터가 저장되었습니다! ({len(stocks_to_save)}개 종목)")
+            flash(f"{owner} / {sel_acc} 종목 {len(stocks_to_save)}개를 저장했습니다.")
             st.session_state.pop(data_key, None)
             st.rerun()
         else:
@@ -633,7 +414,7 @@ def _render_principal_editor(owner: str, sel_acc: str):
     if st.button("💾 저장", key=f"save_prin_{owner}_{sel_acc}",
                  width="stretch", type="primary", disabled=is_closed):
         upsert_investment(year, month, owner, sel_acc, new_p, new_p)
-        st.success(f"✅ {owner} / {sel_acc} 원금이 {new_p:,}원으로 저장되었습니다!")
+        flash(f"{owner} / {sel_acc} 원금을 {new_p:,}원으로 저장했습니다.")
         st.rerun()
 
 
@@ -662,8 +443,16 @@ def render_edit_form(owner: str):
         _render_principal_editor(owner, sel_acc)
 
 
-with tab_jy_edit:
-    render_edit_form("준영")
 
-with tab_jd_edit:
-    render_edit_form("지윤")
+# ── 자산 수정 ─────────────────────────────────────────────
+st.markdown("#### :material/edit: 자산 수정")
+with st.container(border=True, key="glass_inv_edit"):
+    if is_closed:
+        st.caption(":material/lock: 마감한 달이라 고칠 수 없습니다. 고치려면 위에서 마감을 풀어 주세요.")
+    else:
+        st.caption("계좌를 고르고 금액이나 종목을 고친 뒤 저장하세요. 저장하면 위 현황에 바로 반영됩니다.")
+    _view = st.session_state.get("inv_view")
+    edit_owner = st.segmented_control("누구 자산", ["준영", "지윤"],
+                                      default=_view if _view in ("준영", "지윤") else "준영",
+                                      key="inv_edit_owner") or "준영"
+    render_edit_form(edit_owner)
