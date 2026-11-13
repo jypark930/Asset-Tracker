@@ -132,6 +132,7 @@ header[data-testid="stHeader"] { background: rgba(26,25,28,0.55); backdrop-filte
 .st-key-month_nav [data-testid="stMarkdownContainer"], .st-key-month_nav .stMarkdown { margin: 0 !important; }
 .st-key-month_nav [data-testid="stElementContainer"] { display: flex; align-items: center; }
 .st-key-month_nav { margin-bottom: 0.6rem; }
+.st-key-at_drawer_fix { display: none; }
 .st-key-month_nav button { min-height: 2.2rem; }
 
 /* 유리 카드 공통 */
@@ -310,8 +311,31 @@ div[data-testid="stSelectbox"] input { caret-color: transparent; }
 """
 
 
+# 폰에서 메뉴 서랍을 열고 페이지를 고르면 서랍이 열린 채 남는 문제 (Streamlit 기본 동작).
+# 메뉴 링크를 누르면 닫기 버튼을 대신 눌러 준다. 한 번만 등록한다.
+_DRAWER_JS = """<script>
+(function () {
+  const w = window.parent, d = w.document;
+  if (w.__atDrawerFix) return;
+  w.__atDrawerFix = true;
+  d.addEventListener("click", function (e) {
+    if (!e.target.closest('[data-testid="stSidebarNavLink"]')) return;
+    if (w.innerWidth > 768) return;
+    setTimeout(function () {
+      const sb = d.querySelector('[data-testid="stSidebar"]');
+      const btn = d.querySelector('[data-testid="stSidebarCollapseButton"] button');
+      if (sb && sb.getAttribute("aria-expanded") === "true" && btn) btn.click();
+    }, 80);
+  }, true);
+})();
+</script>"""
+
+
 def inject_global_css():
     st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
+    import streamlit.components.v1 as components
+    with st.container(key="at_drawer_fix"):
+        components.html(_DRAWER_JS, height=0)
 
 
 def kpi_card(label: str, value: str, sub: str = "", sub_cls: str = "", highlight: bool = False) -> str:
