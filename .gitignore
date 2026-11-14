@@ -55,3 +55,8 @@ insert_may_data_jiyun.py
 test_copy.py
 update_cma.py
 update_jiyun_cash.py
+
+# 실제 금액·IP 가 든 파일 (저장소에 올리지 않음)
+streamlit_debug.log
+update_junyeong_toss.py
+update_junyeong_toss_auth.py
