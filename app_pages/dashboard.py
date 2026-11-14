@@ -139,28 +139,32 @@ def _line_layout(fig, height=300, unit=""):
 # ── 현금성 자산 추이 ─────────────────────────────────────
 with st.container(border=True, key="glass_1"):
     st.markdown("**:material/savings: 현금성 자산 추이** · 마감한 달까지 · 단위 백만원")
-    dates = [datetime(a["year"], a["month"], 1) for a in all_cash]
+    # 가로축은 마감한 마지막 달까지만 (원금이 None 이면 마감 뒤 달). 목표가 먼 미래까지 있어도 자른다.
+    chart_cash = [a for a in all_cash if a["principal"] is not None]
+    dates = [datetime(a["year"], a["month"], 1) for a in chart_cash]
 
     def _m(v):
         return v / 1_000_000 if v else None
 
     fig = go.Figure()
-    fig.add_scatter(x=dates, y=[_m(a["target"]) for a in all_cash], name="목표", mode="lines",
+    fig.add_scatter(x=dates, y=[_m(a["target"]) for a in chart_cash], name="목표", mode="lines",
                     line=dict(color="rgba(255,255,255,0.35)", width=2, dash="dash"),
                     hovertemplate="%{y:,.1f}백만<extra>목표</extra>", connectgaps=True)
-    fig.add_scatter(x=dates, y=[_m(a["principal"]) for a in all_cash], name="원금", mode="lines+markers",
+    fig.add_scatter(x=dates, y=[_m(a["principal"]) for a in chart_cash], name="원금", mode="lines+markers",
                     line=dict(color="#60a5fa", width=3, shape="spline"),
                     hovertemplate="%{y:,.1f}백만<extra>원금</extra>", connectgaps=True)
-    fig.add_scatter(x=dates, y=[_m(a["evaluation"]) for a in all_cash], name="평가금", mode="lines+markers",
+    fig.add_scatter(x=dates, y=[_m(a["evaluation"]) for a in chart_cash], name="평가금", mode="lines+markers",
                     line=dict(color="#34d399", width=3, shape="spline"),
                     hovertemplate="%{y:,.1f}백만<extra>평가금</extra>", connectgaps=True)
     _line_layout(fig, height=280, unit="백만원")
-    _vals = [v for a in all_cash for k in ("target", "principal", "evaluation") if (v := _m(a[k]))]
+    if len(dates) <= 12:
+        fig.update_xaxes(dtick="M1")  # 달이 적으면 한 달씩 눈금
+    _vals = [v for a in chart_cash for k in ("target", "principal", "evaluation") if (v := _m(a[k]))]
     fig.update_yaxes(tickformat=",.0f" if _vals and max(_vals) >= 10 else ",.1f")
     if _vals:
         st.plotly_chart(fig, config={"displayModeBar": False})
     else:
-        st.caption("표시할 값이 없습니다. 투자현황에서 달을 마감하거나 설정에서 목표를 넣으면 그래프가 나옵니다.")
+        st.caption("마감한 달이 없어요. 투자현황에서 달을 마감하면 그래프가 나와요.")
 
 # ── 변동지출 구성 | 월별 추이 ─────────────────────────────
 c_left, c_right = st.columns(2, gap="medium")
