@@ -32,10 +32,17 @@ else:
                     url_path="finance"),
             st.Page("app_pages/invest.py", title="투자현황", icon=":material/trending_up:",
                     url_path="invest"),
+            st.Page("app_pages/ai.py", title="AI 점검", icon=":material/smart_toy:",
+                    url_path="ai"),
             st.Page("app_pages/settings.py", title="설정", icon=":material/settings:",
                     url_path="settings"),
         ],
         position="top",
     )
 
+st.session_state.pop("_tip_slot", None)   # 지난번에 중간에 멈춘 화면의 자리는 버린다
 pg.run()
+
+if logged_in:
+    from utils import tips
+    tips.fill()                           # 화면을 다 그린 뒤 맨 위 한 줄 조언을 AI 문장으로 바꾼다

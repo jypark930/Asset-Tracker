@@ -91,6 +91,8 @@ def page_header(title: str, caption: str | None = None, show_month: bool = True)
                       on_click=_shift, args=(1,), help="다음 달")
             if not is_now:
                 st.button("이번 달", key="nav_today", on_click=_go_today, type="tertiary")
+    from utils import tips          # 여기서 불러야 서로 물고 물리는 import 가 안 생긴다
+    tips.show(title, (year, month), now_kst())
     return year, month
 
 
@@ -284,6 +286,10 @@ div[data-testid="stForm"] { background: rgba(255,255,255,0.04); border-color: va
 .at-todo { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 8px;
            border-radius: 14px; border: 1px solid rgba(251,191,36,0.35); background: rgba(251,191,36,0.08);
            color: #fde68a; font-size: 0.88rem; font-weight: 700; }
+.at-tip { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; margin: 2px 0 12px;
+          border-radius: 14px; border: 1px solid rgba(96,165,250,0.3); background: rgba(59,130,246,0.08);
+          color: var(--at-text); font-size: 0.9rem; font-weight: 600; line-height: 1.5; }
+.at-tip .at-badge { flex: none; margin-top: 2px; }
 .at-todo.ok { border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.08); color: #a7f3d0; }
 
 /* ── 표 (가족·사람별 비교) ── */
