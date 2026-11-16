@@ -1,14 +1,15 @@
 """
 app_pages/dashboard.py  ─  한 달을 한 장으로: 확인할 일 → 돈의 흐름 → 자산·목표 → 지출 구성 → 추이
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import plotly.graph_objects as go
 import streamlit as st
 
 from utils.db import (
-    INVESTMENT_ACCOUNTS, TREND_CATEGORIES,
+    INVESTMENT_ACCOUNTS, TREND_CATEGORIES, FIXED_COST_GROUPS, FIXED_COST_LABELS,
     get_monthly_summary, get_all_cash_assets, get_all_household_trends,
+    cash_totals, get_all_investment_stocks,
 )
 from utils.fin import confirmed_fields, unconfirmed_count
 from utils.ui import (
@@ -29,8 +30,9 @@ C_FIXED, C_UTIL, C_VAR, C_LEFT = "#60a5fa", "#a78bfa", "#f472b6", "#34d399"
 
 
 def _cash(summary: dict) -> int:
-    return sum((i.get("principal") or 0) for i in summary.get("investments", [])
-               if i.get("account_type") in CASH_ACCOUNTS)
+    """현금성 원금. 총 예수금 안의 ISA 예수금은 비현금성이라 뺀다."""
+    invs = summary.get("investments", [])
+    return cash_totals(invs, get_all_investment_stocks([i["id"] for i in invs]))[0]
 
 
 # ── 확인할 일 ────────────────────────────────────────────
@@ -136,6 +138,18 @@ def _line_layout(fig, height=300, unit=""):
     )
 
 
+def _same_months(fig, dates):
+    """현금성 자산 추이와 월별 총 지출의 가로축을 똑같이 맞춰 위아래로 비교하기 쉽게 한다."""
+    if not dates:
+        return
+    pad = timedelta(days=16)
+    fig.update_xaxes(range=[min(dates) - pad, max(dates) + pad])
+    if len(dates) <= 12:
+        fig.update_xaxes(dtick="M1")  # 달이 적으면 한 달씩 눈금
+    fig.update_yaxes(automargin=False)
+    fig.update_layout(margin=dict(l=48, r=8, t=30, b=8))
+
+
 # ── 현금성 자산 추이 ─────────────────────────────────────
 with st.container(border=True, key="glass_1"):
     st.markdown("**:material/savings: 현금성 자산 추이** · 마감한 달까지 · 단위 백만원")
@@ -157,14 +171,46 @@ with st.container(border=True, key="glass_1"):
                     line=dict(color="#34d399", width=3, shape="spline"),
                     hovertemplate="%{y:,.1f}백만<extra>평가금</extra>", connectgaps=True)
     _line_layout(fig, height=280, unit="백만원")
-    if len(dates) <= 12:
-        fig.update_xaxes(dtick="M1")  # 달이 적으면 한 달씩 눈금
+    _same_months(fig, dates)
     _vals = [v for a in chart_cash for k in ("target", "principal", "evaluation") if (v := _m(a[k]))]
     fig.update_yaxes(tickformat=",.0f" if _vals and max(_vals) >= 10 else ",.1f")
     if _vals:
         st.plotly_chart(fig, config={"displayModeBar": False})
     else:
         st.caption("마감한 달이 없어요. 투자현황에서 달을 마감하면 그래프가 나와요.")
+
+# ── 월별 총 지출 (재무현황 고정비·공과금 + 가계부 변동지출) ─────────
+trend = get_all_household_trends(start_year=2026, start_month=5)
+SAVING_LABELS = [FIXED_COST_LABELS[k] for k in FIXED_COST_GROUPS.get("🏦 예적금", [])]
+with st.container(border=True, key="glass_spend"):
+    st.markdown("**:material/receipt_long: 월별 총 지출** · 위 그래프와 같은 달 · 단위 만원")
+    sp = [t for t in trend if t["values"].get("총 지출") is not None]
+    if dates:  # 현금성 자산 추이와 같은 달만 (마감한 달까지)
+        shown = {(d.year, d.month) for d in dates}
+        sp = [t for t in sp if (t["year"], t["month"]) in shown]
+    if not sp:
+        st.caption("아직 입력된 지출이 없어요.")
+    else:
+        xs = [datetime(t["year"], t["month"], 1) for t in sp]
+        sav = [sum(t["values"].get(lb) or 0 for lb in SAVING_LABELS) for t in sp]
+        parts = [
+            ("고정비", [(t["values"].get("고정비 총액") or 0) - s_ for t, s_ in zip(sp, sav)], C_FIXED),
+            ("적금", sav, "#38bdf8"),
+            ("공과금", [t["values"].get("공과금 총액") or 0 for t in sp], C_UTIL),
+            ("변동지출", [t["values"].get("변동비 총액") or 0 for t in sp], C_VAR),
+        ]
+        fig3 = go.Figure()
+        for name, ys, col in parts:
+            fig3.add_bar(x=xs, y=[v / 10_000 for v in ys], name=name, marker_color=col,
+                         hovertemplate="%{y:,.0f}만<extra>" + name + "</extra>")
+        fig3.add_scatter(x=xs, y=[(t["values"].get("총 수입") or 0) / 10_000 for t in sp], name="수입",
+                         mode="lines+markers", line=dict(color="rgba(255,255,255,0.55)", width=2, dash="dot"),
+                         hovertemplate="%{y:,.0f}만<extra>수입</extra>")
+        _line_layout(fig3, height=280, unit="만원")
+        fig3.update_layout(barmode="stack", bargap=0.35)
+        _same_months(fig3, dates or xs)
+        st.plotly_chart(fig3, config={"displayModeBar": False})
+        st.caption("적금은 고정비 안의 예적금이에요. 점선(수입)보다 막대가 높으면 적자인 달이에요.")
 
 # ── 변동지출 구성 | 월별 추이 ─────────────────────────────
 c_left, c_right = st.columns(2, gap="medium")
@@ -198,7 +244,6 @@ with c_right, st.container(border=True, key="glass_3", height="stretch"):
                              key="trend_other")
     selected = other if other and other != "(위에서 고른 항목)" else (pick or "총 지출")
 
-    trend = get_all_household_trends(start_year=2026, start_month=5)
     fig2 = go.Figure()
     fig2.add_scatter(x=[datetime(t["year"], t["month"], 1) for t in trend],
                      y=[t["values"].get(selected) for t in trend],

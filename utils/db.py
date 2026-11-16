@@ -56,9 +56,50 @@ FIXED_COST_GROUPS = {
     "💸 용돈":      ["junyoung_allowance", "jiyun_allowance"],
 }
 INVESTMENT_ACCOUNTS = {
-    "비현금성 자산": ["주택청약", "IRP", "중개형ISA"],
-    "현금성 자산": ["TOSS", "KB", "총 예수금", "CMA", "업비트", "청년도약"]
+    "비현금성 자산": ["주택청약", "IRP", "중개형ISA", "KB"],
+    "현금성 자산": ["TOSS", "총 예수금", "CMA", "업비트", "청년도약"]
 }
+
+def noncash_deposit_bucket(stock_name):
+    """'총 예수금' 안의 행이 비현금성 계좌(ISA·KB)의 예수금이면 묶음 이름, 아니면 None."""
+    n = str(stock_name or "").lower()
+    if "isa" in n:
+        return "ISA 예수금"
+    if "kb" in n:
+        return "KB 예수금"
+    return None
+
+
+def isa_deposits_by_investment(invests: list, stocks: list) -> dict:
+    """총 예수금 계좌 id → (비현금성 예수금(ISA·KB) 원금, 평가액)."""
+    dep_ids = {i["id"] for i in invests if i.get("account_type") == "총 예수금"}
+    out = {}
+    for s in stocks:
+        if s.get("investment_id") in dep_ids and noncash_deposit_bucket(s.get("stock_name")):
+            p, a = out.get(s["investment_id"], (0, 0))
+            out[s["investment_id"]] = (p + (s.get("principal") or 0), a + (s.get("valuation") or 0))
+    return out
+
+
+def cash_totals(invests: list, stocks: list) -> tuple:
+    """현금성 자산 (원금, 평가액). 총 예수금 안의 ISA·KB 예수금은 비현금성이라 뺀다."""
+    isa = isa_deposits_by_investment(invests, stocks)
+    p = a = 0
+    for i in invests:
+        if i.get("account_type") in INVESTMENT_ACCOUNTS["현금성 자산"]:
+            ip, ia = isa.get(i["id"], (0, 0))
+            p += (i.get("principal") or 0) - ip
+            a += (i.get("amount") or 0) - ia
+    return p, a
+
+
+def _all_stocks_for(invests: list) -> list:
+    ids = [i["id"] for i in invests if i.get("account_type") == "총 예수금"]
+    out = []
+    for k in range(0, len(ids), 100):  # URL 길이 제한 때문에 나눠서 조회
+        out += get_all_investment_stocks(ids[k:k + 100])
+    return out
+
 
 def _uid():
     user = get_current_user()
@@ -419,13 +460,13 @@ def get_yearly_cash_assets(year: int) -> dict:
         
     try:
         inv_res = client.table("investments").select("*").eq("year", year).execute()
-        if inv_res.data:
-            for inv in inv_res.data:
-                if inv.get("account_type") in cash_accounts:
-                    m = inv.get("month")
-                    if m in yearly_data:
-                        yearly_data[m]["principal"] += (inv.get("principal") or 0)
-                        yearly_data[m]["evaluation"] += (inv.get("amount") or 0)
+        invs = inv_res.data or []
+        stocks = _all_stocks_for(invs)
+        for m in yearly_data:
+            month_invs = [i for i in invs if i.get("month") == m]
+            p, a = cash_totals(month_invs, stocks)
+            yearly_data[m]["principal"] += p
+            yearly_data[m]["evaluation"] += a
     except Exception as e:
         print(f"Error fetching investments in yearly_cash: {e}")
 
@@ -451,14 +492,16 @@ def get_all_cash_assets(start_year: int = 2026, start_month: int = 5) -> list:
     inv_dict = {}
     try:
         inv_res = client.table("investments").select("*").execute()
-        for inv in (inv_res.data or []):
-            if inv.get("account_type") in cash_accounts:
-                y, m = inv.get("year"), inv.get("month")
-                if y > start_year or (y == start_year and m >= start_month):
-                    if (y, m) not in inv_dict:
-                        inv_dict[(y, m)] = {"principal": 0, "evaluation": 0}
-                    inv_dict[(y, m)]["principal"] += (inv.get("principal") or 0)
-                    inv_dict[(y, m)]["evaluation"] += (inv.get("amount") or 0)
+        invs = [i for i in (inv_res.data or [])
+                if i.get("year") > start_year or (i.get("year") == start_year and i.get("month") >= start_month)]
+        stocks = _all_stocks_for(invs)
+        by_month = {}
+        for inv in invs:
+            by_month.setdefault((inv["year"], inv["month"]), []).append(inv)
+        for key, month_invs in by_month.items():
+            if any(i.get("account_type") in cash_accounts for i in month_invs):
+                p, a = cash_totals(month_invs, stocks)
+                inv_dict[key] = {"principal": p, "evaluation": a}
     except Exception as e:
         print(f"Error fetching all investments: {e}")
 

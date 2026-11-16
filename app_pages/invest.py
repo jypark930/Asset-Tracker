@@ -12,6 +12,7 @@ from utils.currency import get_usd_krw_rate
 from utils.db import (
     INVESTMENT_ACCOUNTS, get_investments, upsert_investment, get_monthly_income, upsert_monthly_income,
     get_all_investment_stocks, replace_investment_stocks, copy_previous_month_investments,
+    noncash_deposit_bucket,
 )
 from utils.ui import page_header, now_kst, won, won_short, roll_number, flow_bar, legend_item, flash
 
@@ -22,11 +23,11 @@ CUSTOM_SORT_ORDER = [
     "iShares Semiconductor ETF", "SOXX", "기업은행", "현대차2우B", "TIGER코스닥150", "코리안리",
     "서울보증보험", "우리금융지주", "KODEX미국배당커버드콜", "CJ우", "SK", "NAVER",
 ]
-ACC_ORDER = {"TOSS": 1, "중개형ISA": 2, "KB": 3, "총 예수금": 4, "CMA": 5, "청년도약": 6,
+ACC_ORDER = {"TOSS": 1, "중개형ISA": 2, "ISA 예수금": 2.5, "KB": 3, "KB 예수금": 3.5, "총 예수금": 4, "CMA": 5, "청년도약": 6,
              "주택청약": 7, "IRP": 8, "업비트": 9}
 ACC_COLOR = {"TOSS": "#3b82f6", "KB": "#f59e0b", "총 예수금": "#10b981", "CMA": "#8b5cf6",
              "업비트": "#f43f5e", "청년도약": "#0ea5e9", "주택청약": "#60a5fa", "IRP": "#84cc16",
-             "중개형ISA": "#ec4899"}
+             "중개형ISA": "#ec4899", "ISA 예수금": "#f9a8d4", "KB 예수금": "#fcd34d"}
 C_JY, C_JI = "#60a5fa", "#f472b6"
 C_CASH, C_NONCASH = "#34d399", "#a78bfa"
 
@@ -105,8 +106,21 @@ def calc_pnl(principal, amount):
     return 0.0 if not principal else (amount - principal) / principal * 100
 
 
+# 총 예수금 안의 ISA·KB 예수금은 비현금성 계좌 돈 → 'ISA 예수금'·'KB 예수금' 으로 따로 센다 (보기용, 저장 안 함).
+DEP_BUCKETS = ["ISA 예수금", "KB 예수금"]
+for owner, pre in (("준영", "jy"), ("지윤", "ji")):
+    for bucket in DEP_BUCKETS:
+        rows = [d for (acc, name), d in stock_map.items()
+                if acc == "총 예수금" and noncash_deposit_bucket(name) == bucket]
+        bp, ba = sum(d[f"{pre}_p"] for d in rows), sum(d[f"{pre}_a"] for d in rows)
+        if (bp or ba) and (owner, "총 예수금") in inv_map:
+            dep = inv_map[(owner, "총 예수금")]
+            inv_map[(owner, "총 예수금")] = {"principal": (dep.get("principal") or 0) - bp,
+                                           "amount": (dep.get("amount") or 0) - ba}
+            inv_map[(owner, bucket)] = {"principal": bp, "amount": ba}
+
 cash_list = INVESTMENT_ACCOUNTS["현금성 자산"]
-non_cash_list = INVESTMENT_ACCOUNTS["비현금성 자산"]
+non_cash_list = INVESTMENT_ACCOUNTS["비현금성 자산"] + DEP_BUCKETS
 
 
 def _sum(owners, accs):
@@ -267,7 +281,8 @@ if invests:
                                     f"{lines}</table>", unsafe_allow_html=True)
                     else:
                         inv = next((i for i in invests if i["owner"] == view and i["account_type"] == acc), None)
-                        real = [s for s in inv_stocks_map.get(inv["id"], []) if s.get("stock_name", "") not in SKIP_STOCK_NAMES] if inv else []
+                        real = [s for s in inv_stocks_map.get(inv["id"], []) if s.get("stock_name", "") not in SKIP_STOCK_NAMES
+                                and not (acc == "총 예수금" and noncash_deposit_bucket(s.get("stock_name")))] if inv else []
                         st.markdown(f"<div class='at-table' style='margin-bottom:6px'>원금 {won(p)} · 수익 {_pnl_html(p, a)}</div>",
                                     unsafe_allow_html=True)
                         if real:
