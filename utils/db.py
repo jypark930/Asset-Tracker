@@ -320,7 +320,11 @@ def replace_investment_stocks(investment_id: str, stocks: list) -> bool:
         st.error(f"종목 저장 실패: {e}")
         return False
 
+STOCK_NUMBER_FIELDS = ("quantity", "average_price", "current_price", "principal", "valuation")
+
+
 def copy_previous_month_investments(year: int, month: int) -> bool:
+    """전월의 계좌·종목 '목록'만 가져온다. 금액은 모두 0 (입력 안 한 값이 전월 값으로 보이지 않게)."""
     client = get_supabase_client()
     try:
         curr_invs = get_investments(year, month)
@@ -342,7 +346,7 @@ def copy_previous_month_investments(year: int, month: int) -> bool:
                 res = client.table("investments").insert({
                     "user_id": user_id, "year": year, "month": month,
                     "owner": p_inv["owner"], "account_type": p_inv["account_type"],
-                    "principal": p_inv.get("principal", 0), "amount": p_inv.get("amount", 0)
+                    "principal": 0, "amount": 0,
                 }).execute()
                 
                 if res.data:
@@ -355,6 +359,8 @@ def copy_previous_month_investments(year: int, month: int) -> bool:
                         new_stocks = []
                         for s in p_stocks:
                             new_s = {k: v for k, v in s.items() if k not in ("id", "investment_id", "created_at")}
+                            new_s.pop("updated_at", None)
+                            new_s.update({f: 0 for f in STOCK_NUMBER_FIELDS})
                             new_s["investment_id"] = new_inv_id
                             new_stocks.append(new_s)
                         client.table("investment_stocks").insert(new_stocks).execute()

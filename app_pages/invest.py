@@ -59,7 +59,7 @@ if is_past_month:
 # ── 데이터 로드 및 집계 ─────────────────────────────────────
 # 미래 달을 넘겨 보기만 해도 전월 계좌가 복사되던 문제(B4) 때문에 이번 달까지만 복사한다.
 if (year, month) <= (now.year, now.month) and copy_previous_month_investments(year, month):
-    st.toast("전월 투자 자산과 종목 내역을 복사해 왔습니다.", icon=":material/content_copy:")
+    st.toast("전월 계좌·종목 목록을 가져왔습니다. 금액은 0이에요.", icon=":material/content_copy:")
 
 invests = get_investments(year, month)
 all_stocks = get_all_investment_stocks([i["id"] for i in invests])
